@@ -35,13 +35,19 @@ enum LCForkUpdate {
         return false
     }
 
+    /// The same file through GitHub's API, which serves the latest commit (raw.githubusercontent.com can
+    /// keep serving an older copy for several minutes, query string or not).
+    static let apiSourceURL = URL(string: "https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json")!
+
     static func fetchLatest() async throws -> Release? {
-        // Skip local and CDN caches so a release shows up right away.
-        var components = URLComponents(url: sourceURL, resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "t", value: String(Int(Date().timeIntervalSince1970)))]
-        var request = URLRequest(url: components.url!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        var request = URLRequest(url: apiSourceURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.setValue("application/vnd.github.raw", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 20
-        let (data, _) = try await URLSession.shared.data(for: request)
+        var (data, response) = try await URLSession.shared.data(for: request)
+        if (response as? HTTPURLResponse)?.statusCode != 200 {
+            // API limit reached (60 an hour): fall back to the plain link.
+            (data, _) = try await URLSession.shared.data(for: URLRequest(url: sourceURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+        }
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let app = (json?["apps"] as? [[String: Any]])?.first
         guard let latest = (app?["versions"] as? [[String: Any]])?.first,

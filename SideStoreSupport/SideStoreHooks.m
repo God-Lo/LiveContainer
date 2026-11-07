@@ -104,16 +104,16 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
     });
     return sourceURL;
 }
-// fork: fetch this fork's source fresh, past the 5-minute caches (the phone's and GitHub's), so SideStore
-// sees a new release as soon as LiveContainer's own update check does.
+// fork: fetch this fork's source through GitHub's API, which serves the latest commit (the plain link can
+// keep serving an older copy for minutes), so SideStore sees a new release as soon as LiveContainer's own
+// update check does.
 static NSURLSessionDataTask *(*SideStoreSession_orig_dataTask)(id self, SEL cmd, NSURLRequest *request, id completion);
 static NSURLSessionDataTask *SideStoreSession_hook_dataTask(id self, SEL cmd, NSURLRequest *request, id completion) {
     NSURL *source = SideStoreSource_hook_altStoreSourceURL(nil, nil);
     if ([request.URL.host isEqualToString:source.host] && [request.URL.path isEqualToString:source.path]) {
-        NSURLComponents *components = [NSURLComponents componentsWithURL:source resolvingAgainstBaseURL:NO];
-        components.queryItems = @[[NSURLQueryItem queryItemWithName:@"t" value:@((long)NSDate.date.timeIntervalSince1970).stringValue]];
         NSMutableURLRequest *fresh = [request mutableCopy];
-        fresh.URL = components.URL;
+        fresh.URL = [NSURL URLWithString:@"https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json"];
+        [fresh setValue:@"application/vnd.github.raw" forHTTPHeaderField:@"Accept"];
         fresh.cachePolicy = NSURLRequestReloadIgnoringLocalAndRemoteCacheData;
         request = fresh;
     }
