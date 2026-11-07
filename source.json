@@ -20,6 +20,15 @@
       "versions": [
         {
           "version": "3.8.11",
+          "buildVersion": "3.8.11.2",
+          "date": "2026-11-07T16:09:50Z",
+          "localizedDescription": "Fixes the built-in SideStore's App Group error after installing from the source. The built-in SideStore's source is now this fork, so LiveContainer updates come from it.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.2/LiveContainer+SideStore.ipa",
+          "size": 23762861,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "3.8.11",
           "buildVersion": "3.8.11.1",
           "date": "2026-11-07T15:31:42Z",
           "localizedDescription": "First fork release, based on LiveContainer 3.8.11. Adds Shortcuts actions and screen broadcast for apps.",

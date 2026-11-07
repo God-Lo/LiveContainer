@@ -32,6 +32,9 @@ IPA="$WORK/LiveContainer+SideStore.ipa"
 ( cd "$WORK/pkg" && ditto -c -k --norsrc --noextattr --keepParent Payload "$IPA" )
 
 gh release create "$TAG" "$IPA" --repo "$REPO" --title "$TAG" --notes "$NOTES"
+# The public download must match the built file.
+curl -sSfL -o "$WORK/check.ipa" "https://github.com/$REPO/releases/download/$TAG/LiveContainer+SideStore.ipa"
+[ "$(shasum -a 256 < "$IPA")" = "$(shasum -a 256 < "$WORK/check.ipa")" ] || { echo "Download doesn't match the build."; exit 1; }
 
 python3 - "$IPA" "$REPO" "$VER" "$TAG" "$NOTES" <<'PY'
 import json, os, sys, datetime
