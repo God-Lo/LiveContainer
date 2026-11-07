@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.6",
+          "buildVersion": "3.8.11.6",
+          "date": "2026-11-07T18:20:18Z",
+          "localizedDescription": "App Extensions now work like Shortcuts: turn on an app's extensions, tap Apply Changes, and LiveContainer reinstalls with that app's own extensions included, under their own names. Several apps work side by side. Files, iMessage and SMS Filter work for one app at a time (pick it in Settings → App Extensions).",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.6/LiveContainer+SideStore.ipa",
+          "size": 23793421,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.5",
           "buildVersion": "3.8.11.5",
           "date": "2026-11-07T17:24:58Z",
