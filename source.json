@@ -17,7 +17,17 @@
       "tintColor": "#0784FC",
       "category": "utilities",
       "screenshotURLs": [],
-      "versions": [],
+      "versions": [
+        {
+          "version": "3.8.11",
+          "buildVersion": "3.8.11.1",
+          "date": "2026-11-07T15:31:42Z",
+          "localizedDescription": "First fork release, based on LiveContainer 3.8.11. Adds Shortcuts actions and screen broadcast for apps.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.1/LiveContainer+SideStore.ipa",
+          "size": 23750503,
+          "minOSVersion": "15.0"
+        }
+      ],
       "appPermissions": {
         "entitlements": [
           "application-identifier",
