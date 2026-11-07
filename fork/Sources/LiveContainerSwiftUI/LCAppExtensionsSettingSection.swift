@@ -2,64 +2,53 @@
 //  LCAppExtensionsSettingSection.swift
 //  LiveContainer (fork)
 //
-//  "App Extensions" in an app's settings: one switch per feature LiveContainer can run for the app
-//  (Shortcuts and the app's extensions). Features the app doesn't have are grayed out.
-//  - Shortcuts: off by default; changing it reinstalls LiveContainer (LCShortcutsSelfUpdate).
-//  - Keyboard, Screen Broadcast, SMS Filter: off by default, they can see private data.
-//  - Widgets: one app at a time; turning it on here turns it off for the previous app.
-//  - Everything else: on by default.
+//  "App Extensions" in an app's settings: one switch per feature LiveContainer can add for the app
+//  (its Shortcuts actions and each kind of extension it has). Grayed out: the app doesn't have it. All
+//  off by default. Apply Changes rebuilds LiveContainer once through the built-in SideStore (LCSelfUpdate).
+//  Files, iMessage and SMS Filter work for one app at a time; turning one on here turns it off for the
+//  previous app (also selectable in LiveContainer's Settings, LCSingleAppExtensionsSection).
 //
 
 import SwiftUI
-import WidgetKit
+
+/// Turns a kind on for one app, and off for the others if iOS allows only one.
+enum LCAppExtensionSwitch {
+    static func set(_ point: String, enabled: Bool, for app: LCAppInfo, apply: Bool = true) {
+        if enabled && LCGuestExtensionBuilder.isSingleAppPoint(point) {
+            let model = DataManager.shared.model
+            for other in (model.apps + model.hiddenApps).map(\.appInfo) where other !== app && other.isExtensionEnabled(point) {
+                other.setExtension(point, enabled: false)
+            }
+        }
+        app.setExtension(point, enabled: enabled)
+        if apply { LCSelfUpdate.applySettingChange() }
+    }
+}
 
 struct LCAppExtensionsSettingSection: View {
     let appInfo: LCAppInfo
-    private let folder: String
     private let available: Set<String>
     private let hasShortcuts: Bool
     private let isPrimary = LCGuestIntentsIndexer.isPrimaryLiveContainer
     @State private var shortcutsOn: Bool
-    @State private var allowed: [String: Bool] = [:]
-    @State private var widgetsOn: Bool
-
-    /// Display order: everyday features first, the ones that can see private data last.
-    private static let points = ["com.apple.widgetkit-extension", "com.apple.share-services", "com.apple.ui-services",
-                                 "com.apple.fileprovider-nonui", "com.apple.Safari.content-blocker",
-                                 "com.apple.photo-editing", "com.apple.message-payload-provider",
-                                 "com.apple.callkit.call-directory", "com.apple.keyboard-service",
-                                 "com.apple.broadcast-services-upload", "com.apple.identitylookup.message-filter"]
+    @State private var enabled: Set<String>
+    @State private var changed = false
 
     init(appInfo: LCAppInfo) {
         self.appInfo = appInfo
-        let folder = appInfo.relativeBundlePath ?? ""
-        self.folder = folder
-        available = Set(LCGuestExtensionPreparer.supportedPoints(inBundle: appInfo.bundlePath() ?? ""))
+        available = Set(appInfo.supportedExtensionPoints)
         hasShortcuts = appInfo.hasShortcutsActions
         _shortcutsOn = State(initialValue: appInfo.shortcutsEnabled)
-        _widgetsOn = State(initialValue: LCGuestExtensionPreparer.isWidgetAppFolder(folder)
-                           && LCGuestExtensionPreparer.isAllowedPoint("com.apple.widgetkit-extension", folder: folder))
+        _enabled = State(initialValue: appInfo.enabledExtensionPoints)
     }
 
     private func binding(_ point: String) -> Binding<Bool> {
-        if point == "com.apple.widgetkit-extension" {
-            return Binding(get: { widgetsOn }, set: { on in
-                widgetsOn = on
-                LCGuestExtensionPreparer.setAllowed(on, point: point, folder: folder)
-                if on {
-                    LCGuestExtensionPreparer.useWidgets(ofFolder: folder)
-                } else if LCGuestExtensionPreparer.isWidgetAppFolder(folder) {
-                    LCGuestExtensionPreparer.useWidgets(ofFolder: "")
-                }
-                WidgetCenter.shared.reloadAllTimelines()
-            })
-        }
-        return Binding(
-            get: { allowed[point] ?? LCGuestExtensionPreparer.isAllowedPoint(point, folder: folder) },
-            set: {
-                allowed[point] = $0
-                LCGuestExtensionPreparer.setAllowed($0, point: point, folder: folder)
-            })
+        guard available.contains(point) else { return .constant(false) }
+        return Binding(get: { enabled.contains(point) }, set: { on in
+            if on { enabled.insert(point) } else { enabled.remove(point) }
+            LCAppExtensionSwitch.set(point, enabled: on, for: appInfo, apply: false)
+            changed = true
+        })
     }
 
     var body: some View {
@@ -69,19 +58,69 @@ struct LCAppExtensionsSettingSection: View {
                 .onChange(of: shortcutsOn) { newValue in
                     guard newValue != appInfo.shortcutsEnabled else { return }
                     appInfo.shortcutsEnabled = newValue
-                    LCShortcutsSelfUpdate.applySettingChange()
+                    changed = true
                 }
-            ForEach(Self.points, id: \.self) { point in
-                Toggle(LCGuestExtensionPreparer.displayName(forPoint: point),
-                       isOn: available.contains(point) ? binding(point) : .constant(false))
+            ForEach(LCGuestExtensionBuilder.allPoints(), id: \.self) { point in
+                Toggle(LCGuestExtensionBuilder.displayName(forPoint: point), isOn: binding(point))
                     .disabled(!available.contains(point) || !isPrimary)
+            }
+            if changed {
+                Button("Apply Changes") {
+                    changed = false
+                    LCSelfUpdate.applySettingChange()
+                }
             }
         } header: {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app can use. Grayed out: the app doesn't have it. Keyboard, Screen Broadcast and SMS Filter start off. Only one app's widgets show at a time. Changing Shortcuts reinstalls LiveContainer; your data stays."
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files, iMessage and SMS Filter work for one app at a time."
                  : "Change these in the main LiveContainer.")
+        }
+    }
+}
+
+/// In LiveContainer's Settings: which app uses each kind that works for one app at a time.
+struct LCSingleAppExtensionsSection: View {
+    @State private var refresh = 0
+
+    private var apps: [LCAppInfo] {
+        let model = DataManager.shared.model
+        return (model.apps + model.hiddenApps).map(\.appInfo)
+    }
+
+    private func selection(_ point: String) -> Binding<String> {
+        Binding(get: {
+            _ = refresh
+            return apps.first { $0.isExtensionEnabled(point) }?.relativeBundlePath ?? ""
+        }, set: { folder in
+            if let app = apps.first(where: { $0.relativeBundlePath == folder }) {
+                LCAppExtensionSwitch.set(point, enabled: true, for: app)
+            } else if let current = apps.first(where: { $0.isExtensionEnabled(point) }) {
+                LCAppExtensionSwitch.set(point, enabled: false, for: current)
+            }
+            refresh += 1
+        })
+    }
+
+    var body: some View {
+        if LCGuestIntentsIndexer.isPrimaryLiveContainer {
+            Section {
+                ForEach(LCGuestExtensionBuilder.allPoints().filter { LCGuestExtensionBuilder.isSingleAppPoint($0) }, id: \.self) { point in
+                    let candidates = apps.filter { $0.supportedExtensionPoints.contains(point) }
+                    Picker(LCGuestExtensionBuilder.displayName(forPoint: point), selection: selection(point)) {
+                        Text("None").tag("")
+                        ForEach(candidates, id: \.relativeBundlePath) { app in
+                            Text(app.displayName() ?? "App").tag(app.relativeBundlePath ?? "")
+                        }
+                    }
+                    .disabled(candidates.isEmpty)
+                }
+            } header: {
+                Text("App Extensions")
+            } footer: {
+                Text("iOS allows one app at a time for these. Grayed out: none of your apps has it.")
+            }
         }
     }
 }

@@ -2,7 +2,7 @@
 //  LCGuestIntentsIndexer.swift
 //  LiveContainer (fork)
 //
-//  Records each guest app's App Intents metadata so LCShortcutsSelfUpdate can merge it into
+//  Records each guest app's App Intents metadata so LCSelfUpdate can merge it into
 //  LiveContainer's own bundle and reinstall LiveContainer through SideStore, and publishes the guest
 //  list used by the "Open App" / "Open URL in App" Shortcuts actions in LaunchAppExtension.
 //

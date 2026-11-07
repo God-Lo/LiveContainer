@@ -5,7 +5,7 @@
 //  Host side of Shortcuts forwarding. Lives in LiveContainerShared so it is active in every mode of the
 //  main app: LiveContainer's own UI and while LiveContainer is running some other guest app.
 // Guest apps' actions are merged into LiveContainer's
-//  Metadata.appintents on the phone (LCGuestIntentsMerger + LCShortcutsSelfUpdate), so iOS sends them to
+//  Metadata.appintents on the phone (LCGuestIntentsMerger + LCSelfUpdate), so iOS sends them to
 //  LiveContainer. Their Swift types live in the guest binary, which is not loaded here, so we
 //  intercept the App Intents perform request, start the owning guest in LiveProcess, and have it
 //  perform the action there (LiveProcess/Fork/LCGuestIntentClient.m).

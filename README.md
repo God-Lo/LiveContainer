@@ -23,8 +23,8 @@ built-in SideStore under My Apps.
 ## What's new
 
 **Shortcuts for your apps**
-- Turn on **Shortcuts** in an app's settings in LiveContainer. Its actions show up in the Shortcuts app,
-  in their own section.
+- Turn on **Shortcuts** under **App Extensions** in an app's settings in LiveContainer. Its actions show up
+  in the Shortcuts app, in their own section.
 - Actions run in the background, even while another app is open in LiveContainer.
 - Always available: **Open App in LiveContainer** and **Open URL in App**.
 - Needs the built-in SideStore, which reinstalls LiveContainer with the actions. Your data is kept.
@@ -33,24 +33,18 @@ built-in SideStore under My Apps.
 
 **Your apps' extensions**
 
-LiveContainer runs these kinds of extensions from your apps, with no changes to the apps and no extra App IDs:
+Turn on an app's extensions in its settings in LiveContainer, under **App Extensions**. LiveContainer adds
+the app's own extensions to itself, the same way it adds Shortcuts actions, and the built-in SideStore
+reinstalls it. Each app keeps its own entry, named after the app: its keyboard, its share and action
+items, its widgets (with Live Activities and controls), its Safari content blocker, photo editing,
+call blocking and screen broadcast. The apps need no changes, and no extra App IDs are used.
 
-| Kind | Where it shows up |
-|---|---|
-| Share, Actions | Share sheet, as **LiveContainer Apps** |
-| Widgets, Live Activities, controls | Widget gallery, as **LiveContainer Apps** |
-| Keyboard | Settings → Keyboards, as **LiveContainer** |
-| Safari content blocker | Settings → Safari → Extensions |
-| Files (File Provider) | Files app |
-| Screen broadcast | Control Center → Screen Recording → **LiveContainer** |
-| Photo editing, iMessage app | Photos edit menu, Messages app drawer |
-| Call blocking, SMS filter | Settings → Phone / Messages |
-
-- Each kind runs the app you opened most recently. Share and Actions ask which app when several have one.
-- Widgets come from one app at a time: the one with **Widgets** turned on in its settings.
-- **Keyboard, Screen Broadcast and SMS Filter** can see private data. They stay off until you allow them
-  in the app's settings in LiveContainer, under **App Extensions**, where every feature has a switch.
-- Needs LiveContainer's signing certificate (JIT-less mode).
+- Every switch is off by default. Grayed out: the app doesn't have that kind. Tap **Apply Changes**
+  when done; LiveContainer reinstalls once.
+- **Files, iMessage and SMS Filter** work for one app at a time, as iOS allows one per app. Pick the app in
+  its settings or in LiveContainer's **Settings → App Extensions**.
+- Turning a switch off or deleting the app removes its extension at the next rebuild.
+- Keyboards also need **Allow Full Access** in iOS Settings to reach the app's data.
 - App developers: see [EXTENSIONS_FOR_APP_DEVELOPERS.md](fork/EXTENSIONS_FOR_APP_DEVELOPERS.md).
 
 Everything else works like LiveContainer. See its [documentation](https://livecontainer.github.io/docs/intro).

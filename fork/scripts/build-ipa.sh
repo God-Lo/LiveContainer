@@ -38,7 +38,7 @@ if [ -n "${FORK_BUILD:-}" ]; then
   echo "==> Build number $VER.$FORK_BUILD"
 fi
 
-# Apps' widget extensions can show Live Activities through LiveContainer's widget extension.
+# Apps' widget extensions added to LiveContainer can show Live Activities.
 /usr/libexec/PlistBuddy -c "Add :NSSupportsLiveActivities bool true" "$APP/Info.plist" 2>/dev/null \
   || /usr/libexec/PlistBuddy -c "Set :NSSupportsLiveActivities true" "$APP/Info.plist"
 
@@ -58,12 +58,6 @@ sign "$(exe "$APP")" "$ROOT/entitlements.xml" "$(bid "$APP")"
 for appex in "$APP"/PlugIns/*.appex; do
   name=$(basename "$appex" .appex)
   ent="$ROOT/$name/$name.entitlements"
-  if [ -f "$ROOT/fork/Extensions/$name/$name.entitlements" ]; then
-    ent="$ROOT/fork/Extensions/$name/$name.entitlements"
-    # The fork's extensions must not need anything SideStore would register with your Apple ID.
-    keys=$(plutil -convert json -o - "$ent" | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin))))')
-    [ "$keys" = "com.apple.security.application-groups" ] || { echo "$name asks for more than app groups: $keys"; exit 1; }
-  fi
   [ -f "$ent" ] || { echo "No entitlements for $name"; exit 1; }
   sign "$(exe "$appex")" "$ent" "$(bid "$appex")"
 done

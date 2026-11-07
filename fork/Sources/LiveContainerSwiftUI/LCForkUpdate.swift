@@ -129,11 +129,12 @@ enum LCForkUpdate {
     }
 }
 
-/// The fork's section in LiveContainer's Settings.
+/// The fork's sections in LiveContainer's Settings.
 struct LCForkSettingsSection: View {
     @State private var checking = false
 
     var body: some View {
+        LCSingleAppExtensionsSection()
         Section {
             Button {
                 checking = true

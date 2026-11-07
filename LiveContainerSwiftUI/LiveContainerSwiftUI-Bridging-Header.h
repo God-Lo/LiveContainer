@@ -17,6 +17,6 @@
 #include "../MultitaskSupport/VirtualWindowsHostView.h"
 #include "../LiveContainer/FoundationPrivate.h"
 #include "../fork/Sources/LiveContainerSwiftUI/LCSelfIPABuilder.h" // fork
-#include "../fork/Sources/LiveContainerSwiftUI/LCGuestExtensionPreparer.h" // fork
+#include "../fork/Sources/LiveContainerSwiftUI/LCGuestExtensionBuilder.h" // fork
 
 #endif /* LiveContainerSwiftUI_Bridging_Header_h_h */

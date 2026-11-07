@@ -13,43 +13,37 @@
 import SwiftUI
 
 enum LCFork {
-    private static func extensionInfo(_ app: LCAppInfo) -> [String: Any] {
-        ["bundlePath": app.bundlePath() ?? "", "folder": app.relativeBundlePath ?? "", "isShared": app.isShared]
-    }
-
     /// LiveContainer read its app list at launch.
     static func appsLoaded(_ apps: [LCAppInfo]) {
+        LCSelfUpdate.cleanUpLeftovers()
         LCGuestIntentsIndexer.reindex(apps: apps) {
-            LCShortcutsSelfUpdate.cleanUpLeftovers()
-            LCShortcutsSelfUpdate.offerIfNeeded(.launch)
-        }
-        if LCGuestIntentsIndexer.isPrimaryLiveContainer {
-            LCGuestExtensionPreparer.syncApps(apps.map(extensionInfo))
+            LCSelfUpdate.offerIfNeeded(.launch)
         }
         LCForkUpdate.checkAtLaunch()
     }
 
-    /// An app was installed, or updated (replacing the old copy).
+    /// An app was installed, or updated (replacing the old copy): keep its switches.
     static func appInstalled(_ app: LCAppInfo, replacing old: LCAppInfo?, allApps: [LCAppInfo]) {
-        if let old { app.shortcutsEnabled = old.shortcutsEnabled }
-        if LCGuestIntentsIndexer.isPrimaryLiveContainer {
-            let info = extensionInfo(app)
-            LCGuestExtensionPreparer.prepareBundle(info["bundlePath"] as! String, folder: info["folder"] as! String,
-                                                   isShared: app.isShared, completion: nil)
+        if let old {
+            app.shortcutsEnabled = old.shortcutsEnabled
+            app.enabledExtensionPoints = old.enabledExtensionPoints
         }
         let others = allApps.filter { $0.bundleIdentifier() != app.bundleIdentifier() }
         LCGuestIntentsIndexer.reindex(apps: others + [app]) {
-            if let id = app.bundleIdentifier() { LCShortcutsSelfUpdate.offerIfNeeded(.installed(bundleId: id)) }
+            if let id = app.bundleIdentifier() { LCSelfUpdate.offerIfNeeded(.installed(bundleId: id)) }
         }
     }
 
-    /// An app was deleted: drop its Shortcuts actions (picker now, merged actions at the next
-    /// reinstall) and its extensions.
+    /// An app was deleted: offer to remove what it added to LiveContainer, and delete the data its
+    /// extensions kept in the app group.
     static func appRemoved(_ app: LCAppInfo, remaining: [LCAppInfo]) {
         guard let removedId = app.bundleIdentifier() else { return }
-        if let folder = app.relativeBundlePath { LCGuestExtensionPreparer.removeFolder(folder) }
+        let folder = app.relativeBundlePath ?? ""
+        if !folder.isEmpty, let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: LCSharedUtils.appGroupID()) {
+            try? FileManager.default.removeItem(at: group.appendingPathComponent("LiveContainer/Data/ExtensionHome/\(folder)"))
+        }
         LCGuestIntentsIndexer.reindex(apps: remaining) {
-            LCShortcutsSelfUpdate.offerIfNeeded(.uninstalled(bundleId: removedId, name: app.displayName() ?? removedId))
+            LCSelfUpdate.offerIfNeeded(.uninstalled(bundleId: removedId, folder: folder, name: app.displayName() ?? removedId))
         }
     }
 }
