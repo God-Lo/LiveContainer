@@ -20,6 +20,15 @@
       "versions": [
         {
           "version": "3.8.11",
+          "buildVersion": "3.8.11.3",
+          "date": "2026-11-07T16:46:56Z",
+          "localizedDescription": "Runs your apps' extensions through LiveContainer: share, actions, keyboard, Safari content blocker, Files, widgets and Live Activities, photo editing, iMessage, call blocking, SMS filter and screen broadcast. Keyboard, screen broadcast and SMS filter need permission per app. Updates no longer ask about app extensions.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.3/LiveContainer+SideStore.ipa",
+          "size": 23850728,
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "3.8.11",
           "buildVersion": "3.8.11.2",
           "date": "2026-11-07T16:09:50Z",
           "localizedDescription": "Fixes the built-in SideStore's App Group error after installing from the source. The built-in SideStore's source is now this fork, so LiveContainer updates come from it.",
