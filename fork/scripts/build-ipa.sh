@@ -2,7 +2,7 @@
 # Build LiveContainer+SideStore.ipa from this fork, the same way upstream's CI does. Install it with
 # iloader; it keeps the upstream bundle ID, so it replaces your existing LiveContainer and keeps its
 # data. The IPA contains no apps' Shortcuts actions: LiveContainer adds those itself on the phone when
-# you install apps (see fork/README.md).
+# you install apps (see README.md).
 #
 # Output: fork/out/LiveContainer+SideStore.ipa (and LiveContainer.ipa without SideStore). Build files are
 # removed afterwards; on failure the logs stay in fork/out for inspection.
