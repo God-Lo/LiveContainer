@@ -1,0 +1,8 @@
+//
+//  AppsPhotoEditing.xcconfig
+//  LiveContainer (fork)
+//
+
+#include "../../../xcconfigs/Global.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = $(LIVECONTAINER_BUNDLE_IDENTIFIER).AppsPhotoEditing

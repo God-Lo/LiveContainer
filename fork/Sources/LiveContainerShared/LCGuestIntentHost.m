@@ -18,10 +18,10 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
-#import "../../FoundationPrivate.h"
-#import "../../utils.h"
-#import "../../LCSharedUtils.h"
-#import "../../../LiveProcess/Fork/LCGuestIntentProtocol.h"
+#import "../../../LiveContainer/FoundationPrivate.h"
+#import "../../../LiveContainer/utils.h"
+#import "../../../LiveContainer/LCSharedUtils.h"
+#import "../LiveProcess/LCGuestIntentProtocol.h"
 
 typedef void (^LCGIPerformCompletion)(id result, NSError *error);
 

@@ -11,7 +11,7 @@
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
 #import "../SideStoreSupport/XPCServer.h"
-#import "Fork/LCGuestIntentProtocol.h"
+#import "../fork/Sources/LiveProcess/LCGuestIntentProtocol.h"  // fork
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
 @end

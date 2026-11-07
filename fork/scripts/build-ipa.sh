@@ -27,8 +27,8 @@ xcodebuild archive -project "$ROOT/LiveContainer.xcodeproj" -scheme LiveContaine
   -configuration Release -archivePath "$WORK/archive" -derivedDataPath "$OUT/DerivedData" \
   CODE_SIGNING_ALLOWED=NO > "$OUT/build.log" 2>&1 || { tail -30 "$OUT/build.log"; echo "Build failed; see $OUT/build.log"; exit 1; }
 
+APP="$WORK/archive.xcarchive/Products/Applications/LiveContainer.app"
 if [ -n "${FORK_BUILD:-}" ]; then
-  APP="$WORK/archive.xcarchive/Products/Applications/LiveContainer.app"
   VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Info.plist")
   for plist in "$APP/Info.plist" "$APP"/PlugIns/*.appex/Info.plist; do
     /usr/libexec/PlistBuddy -c "Set CFBundleVersion $VER.$FORK_BUILD" "$plist"
@@ -36,10 +36,13 @@ if [ -n "${FORK_BUILD:-}" ]; then
   echo "==> Build number $VER.$FORK_BUILD"
 fi
 
+# Apps' widget extensions can show Live Activities through LiveContainer's widget extension.
+/usr/libexec/PlistBuddy -c "Add :NSSupportsLiveActivities bool true" "$APP/Info.plist" 2>/dev/null \
+  || /usr/libexec/PlistBuddy -c "Set :NSSupportsLiveActivities true" "$APP/Info.plist"
+
 # Sign the app and its extensions with their entitlements, the same as upstream's CI (placeholder team
 # AAAAA11111). SideStore takes app groups from these; without them LiveContainer loses its app group.
 echo "==> Signing with entitlements"
-APP="$WORK/archive.xcarchive/Products/Applications/LiveContainer.app"
 sign() {  # sign <binary> <entitlements file> <bundle id>
   sed -e 's/\$(AppIdentifierPrefix)/AAAAA11111./g' -e 's/\$(DEVELOPMENT_TEAM)/AAAAA11111/g' \
       -e "s/\$(PRODUCT_BUNDLE_IDENTIFIER)/$3/g" \
@@ -50,8 +53,17 @@ sign() {  # sign <binary> <entitlements file> <bundle id>
 bid() { /usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$1/Info.plist"; }
 exe() { echo "$1/$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$1/Info.plist")"; }
 sign "$(exe "$APP")" "$ROOT/entitlements.xml" "$(bid "$APP")"
-for name in LaunchAppExtension LiveBroadcastExtension LiveProcess ShareExtension; do
-  sign "$(exe "$APP/PlugIns/$name.appex")" "$ROOT/$name/$name.entitlements" "$(bid "$APP/PlugIns/$name.appex")"
+for appex in "$APP"/PlugIns/*.appex; do
+  name=$(basename "$appex" .appex)
+  ent="$ROOT/$name/$name.entitlements"
+  if [ -f "$ROOT/fork/Extensions/$name/$name.entitlements" ]; then
+    ent="$ROOT/fork/Extensions/$name/$name.entitlements"
+    # The fork's extensions must not need anything SideStore would register with your Apple ID.
+    keys=$(plutil -convert json -o - "$ent" | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin))))')
+    [ "$keys" = "com.apple.security.application-groups" ] || { echo "$name asks for more than app groups: $keys"; exit 1; }
+  fi
+  [ -f "$ent" ] || { echo "No entitlements for $name"; exit 1; }
+  sign "$(exe "$appex")" "$ent" "$(bid "$appex")"
 done
 grep -q "group.com.SideStore.SideStore" < <(ldid -e "$(exe "$APP")") || { echo "Signing failed: no app group"; exit 1; }
 

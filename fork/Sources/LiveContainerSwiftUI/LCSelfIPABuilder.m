@@ -8,8 +8,8 @@
 
 #import "LCSelfIPABuilder.h"
 #import <dlfcn.h>
-#import "../Utilities/LCUtils.h"
-#import "../../ZSign/zsigner.h"
+#import "../../../LiveContainerSwiftUI/Utilities/LCUtils.h"
+#import "../../../ZSign/zsigner.h"
 
 @interface LCUtils (LCSelfIPABuilder)
 + (void)loadStoreFrameworksWithError2:(NSError **)error;

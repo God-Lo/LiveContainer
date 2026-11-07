@@ -203,7 +203,14 @@ void installSideStoreHooks(void) {
     // replace altStoreSourceURL
     Method altStoreSourceURLMethod = class_getClassMethod(PrivClass(Source), @selector(altStoreSourceURL));
     method_setImplementation(altStoreSourceURLMethod, (IMP)SideStoreSource_hook_altStoreSourceURL);
-    
+
+    // fork: always keep app extensions signed with the main profile (one App ID), without asking.
+    // Choosing Remove All or Keep All in SideStore's User Customizations still sticks; Prompt User doesn't.
+    NSString *extensionChoice = [NSUserDefaults.standardUserDefaults stringForKey:@"customizeAppExtensions"];
+    if (!extensionChoice || [extensionChoice isEqualToString:@"prompt-user"]) {
+        [NSUserDefaults.standardUserDefaults setObject:@"use-main-profile" forKey:@"customizeAppExtensions"];
+    }
+
     if (!NSUserDefaults.isLiveProcess) {
         // add escape button
         Method viewDidLoadMethod = class_getInstanceMethod(PrivClass(MyAppsViewController), @selector(viewDidLoad));

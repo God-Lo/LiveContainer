@@ -299,9 +299,7 @@ struct LCAppSettingsView: View {
                 }
             }
             
-            // fork: per-app Shortcuts actions
-            LCShortcutsSettingSection(appInfo: appInfo)
-
+            LCForkAppSettingsSections(appInfo: appInfo) // fork
             Section {
                 Toggle(isOn: $model.uiFixFilePickerNew) {
                     Text("lc.appSettings.fixFilePickerNew".loc)

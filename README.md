@@ -25,18 +25,37 @@ Or download `LiveContainer+SideStore.ipa` from [Releases](https://github.com/God
 - Actions run in the background, even while another app is open in LiveContainer.
 - Always available: **Open App in LiveContainer** and **Open URL in App**.
 - Needs the built-in SideStore, which reinstalls LiveContainer with the actions. Your data is kept.
+- Updates from the built-in SideStore always keep extensions under LiveContainer's one App ID; it no
+  longer asks.
 
-**Screen broadcast for your apps**
-- Apps with a screen broadcast extension work automatically.
-- Control Center → long-press Screen Recording → choose **LiveContainer**. It uses the app you opened last.
+**Your apps' extensions**
+
+LiveContainer runs these kinds of extensions from your apps, with no changes to the apps and no extra App IDs:
+
+| Kind | Where it shows up |
+|---|---|
+| Share, Actions | Share sheet, as **LiveContainer Apps** |
+| Widgets, Live Activities, controls | Widget gallery, as **LiveContainer Apps** |
+| Keyboard | Settings → Keyboards, as **LiveContainer** |
+| Safari content blocker | Settings → Safari → Extensions |
+| Files (File Provider) | Files app |
+| Screen broadcast | Control Center → Screen Recording → **LiveContainer** |
+| Photo editing, iMessage app | Photos edit menu, Messages app drawer |
+| Call blocking, SMS filter | Settings → Phone / Messages |
+
+- Each kind runs the app you opened most recently. Share and Actions ask which app when several have one.
+- Widgets come from one app at a time: pick it with **Show This App's Widgets** in its settings.
+- **Keyboard, Screen Broadcast and SMS Filter** can see private data. They stay off until you allow them
+  in the app's settings in LiveContainer, under **App Extensions**.
 - Needs LiveContainer's signing certificate (JIT-less mode).
-- App developers: see [BROADCAST_FOR_APP_DEVELOPERS.md](fork/BROADCAST_FOR_APP_DEVELOPERS.md).
+- App developers: see [EXTENSIONS_FOR_APP_DEVELOPERS.md](fork/EXTENSIONS_FOR_APP_DEVELOPERS.md).
 
 Everything else works like LiveContainer. See its [documentation](https://livecontainer.github.io/docs/intro).
 
 ## Build
 
-Needs Xcode, Homebrew and the GitHub CLI.
+Needs Xcode, Homebrew and the GitHub CLI. Fork code lives in `fork/`; upstream files only have a
+one-line call into it where needed, so updates from LiveContainer merge easily.
 
 ```bash
 fork/scripts/update-from-upstream.sh   # get the latest LiveContainer source

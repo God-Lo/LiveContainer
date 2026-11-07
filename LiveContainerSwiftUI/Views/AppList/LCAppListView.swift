@@ -744,7 +744,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             finalNewApp.jitLaunchScriptJs = appToReplace.appInfo.jitLaunchScriptJs
             finalNewApp.multitaskSpecified = appToReplace.appInfo.multitaskSpecified
             finalNewApp.classicMode = appToReplace.appInfo.classicMode
-            finalNewApp.shortcutsEnabled = appToReplace.appInfo.shortcutsEnabled // fork
             finalNewApp.autoSaveDisabled = false
             finalNewApp.save()
         } else {
@@ -752,15 +751,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             finalNewApp.spoofSDKVersion = true
         }
         finalNewApp.installationDate = Date.now
-        // fork: prepare the app's screen broadcast extension, if it has one
-        if LCGuestIntentsIndexer.isPrimaryLiveContainer {
-            LCBroadcastPreparer.prepareBundle(finalNewApp.bundlePath(), folder: finalNewApp.relativeBundlePath ?? "",
-                                              isShared: finalNewApp.isShared, completion: nil)
-        }
-        // fork: record guest App Intents for Shortcuts
-        LCGuestIntentsIndexer.reindex(apps: (sharedModel.apps + sharedModel.hiddenApps).map { $0.appInfo }.filter { $0.bundleIdentifier() != finalNewApp.bundleIdentifier() } + [finalNewApp]) {
-            LCShortcutsSelfUpdate.offerIfNeeded(.installed(bundleId: finalNewApp.bundleIdentifier()!))
-        }
+        LCFork.appInstalled(finalNewApp, replacing: appToReplace?.appInfo, allApps: (sharedModel.apps + sharedModel.hiddenApps).map { $0.appInfo }) // fork
         
         DispatchQueue.main.async {
             if let appToReplace {
@@ -987,14 +978,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             sharedModel.hiddenApps.removeAll { now in
                 return app == now
             }
-            // fork: drop the app from Shortcuts (picker now, merged actions at the next reinstall)
-            // and from screen broadcast
-            if let removedId = app.appInfo.bundleIdentifier() {
-                if let folder = app.appInfo.relativeBundlePath { LCBroadcastPreparer.forgetFolder(folder) }
-                LCGuestIntentsIndexer.reindex(apps: (sharedModel.apps + sharedModel.hiddenApps).map { $0.appInfo }) {
-                    LCShortcutsSelfUpdate.offerIfNeeded(.uninstalled(bundleId: removedId, name: app.appInfo.displayName() ?? removedId))
-                }
-            }
+            
+            LCFork.appRemoved(app.appInfo, remaining: (sharedModel.apps + sharedModel.hiddenApps).map { $0.appInfo }) // fork
         }
     }
     
