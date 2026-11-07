@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.5",
+          "buildVersion": "3.8.11.5",
+          "date": "2026-11-07T17:24:58Z",
+          "localizedDescription": "App settings now have one App Extensions section with a switch for every feature, including Shortcuts. Features an app doesn't have are grayed out.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.5/LiveContainer+SideStore.ipa",
+          "size": 23862395,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.4",
           "buildVersion": "3.8.11.4",
           "date": "2026-11-07T17:11:02Z",
