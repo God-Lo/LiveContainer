@@ -154,14 +154,14 @@ static void installIdHooks(void) {
         });
     }
     // Apps' own Files locations aren't used inside LiveContainer (it shows a folder per app instead):
-    // their add/remove requests succeed without doing anything. LiveContainer's own location passes.
+    // their add/remove requests succeed without doing anything. LiveContainer's own locations (lc.files.*) pass.
     dlopen("/System/Library/Frameworks/FileProvider.framework/FileProvider", RTLD_LAZY);
     Class fpm = NSClassFromString(@"NSFileProviderManager");
     for (NSString *name in @[@"addDomain:completionHandler:", @"removeDomain:completionHandler:"]) {
         SEL sel = NSSelectorFromString(name);
         replaceMethod(fpm, sel, YES, ^id(IMP orig) {
             return ^(id self, id domain, void (^completion)(NSError *)) {
-                if ([[domain valueForKey:@"identifier"] isEqual:@"LiveContainer"]) {
+                if ([[domain valueForKey:@"identifier"] hasPrefix:@"lc.files."]) {
                     ((void (*)(id, SEL, id, id))orig)(self, sel, domain, completion);
                 } else if (completion) {
                     completion(nil);

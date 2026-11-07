@@ -14,7 +14,7 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   they share data. Any group ID works.
 - Calls that name your extension by its bundle ID are pointed at its copy: `SFContentBlockerManager`
   reload/state, `CXCallDirectoryManager` reload/status, and `RPSystemBroadcastPickerView.preferredExtension`.
-- Files: LiveContainer shows your app's Documents as a folder in its own Files location. Your File Provider
+- Files: LiveContainer shows your app's Documents as its own location in the Files app. Your File Provider
   extension isn't used, and domains your app adds are ignored (the request still succeeds).
 - Frameworks in your app's `Frameworks/` that the extension links are copied next to it.
 

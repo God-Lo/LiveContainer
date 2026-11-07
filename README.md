@@ -42,8 +42,8 @@ reinstalls it. The apps need no changes, and no extra App IDs are used. Names fo
 - Share: iOS shows one share item per app, so apps' share extensions are listed inside LiveContainer's own
   share item, under **Share With**.
 - Where iOS groups by app (keyboards, the widget gallery), they're grouped under LiveContainer.
-- **Files**: LiveContainer has its own location in the Files app, with a folder for each app that has Files
-  turned on (its Documents). Works for every app.
+- **Files**: each app with Files turned on gets its own location in the Files app, **LiveContainer – App**,
+  showing its Documents. Works for every app.
 - Kinds for one app at a time (**iMessage, SMS Filter**) show as **LiveContainer**.
   Pick the app in its settings or in LiveContainer's **Settings → App Extensions**.
 - Every switch is off by default. Grayed out: the app doesn't have that kind. Tap **Apply Changes**

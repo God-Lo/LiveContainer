@@ -74,7 +74,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files adds a folder for this app in LiveContainer's Files location. iMessage and SMS Filter work for one app at a time."
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files shows this app's Documents as a location in the Files app. iMessage and SMS Filter work for one app at a time."
                  : "Change these in the main LiveContainer.")
         }
     }
