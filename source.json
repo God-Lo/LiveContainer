@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.9",
+          "buildVersion": "3.8.11.9",
+          "date": "2026-11-07T20:07:08Z",
+          "localizedDescription": "The update prompt now opens the built-in SideStore on My Apps, where you tap Update yourself. SideStore fetches this source fresh, so it shows new releases right away.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.9/LiveContainer+SideStore.ipa",
+          "size": 23821379,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.8",
           "buildVersion": "3.8.11.8",
           "date": "2026-11-07T19:54:09Z",
