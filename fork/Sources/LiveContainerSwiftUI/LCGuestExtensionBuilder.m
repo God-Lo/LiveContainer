@@ -31,6 +31,15 @@ static NSString *pointOf(NSDictionary *info) {
 
 static uint32_t rnd8(uint32_t v) { return (v + 7) & ~7u; }
 
+/// What iOS shows for an app's extension copied into LiveContainer:
+/// - kinds that work for one app at a time: LiveContainer's own name;
+/// - others: "<App> - <Extension>", or just "<App>" when the extension has no name of its own.
+static NSString *copyName(NSString *point, NSString *appName, NSString *extName, NSString *lcName) {
+    if (LCGuestExtensionIsSingleApp(point)) return lcName;
+    if (!extName.length || [extName caseInsensitiveCompare:appName] == NSOrderedSame) return appName;
+    return [NSString stringWithFormat:@"%@ - %@", appName, extName];
+}
+
 /// Free bytes after the load commands, before the first section's contents.
 static uint64_t headerRoom(struct mach_header_64 *header) {
     uint64_t first = UINT64_MAX;
@@ -138,7 +147,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
 + (NSString *)signatureForApps:(NSArray<NSDictionary *> *)apps {
     NSArray *selected = [self selectedExtensions:apps];
     if (!selected.count) return @"";
-    NSMutableString *text = [@"v1" mutableCopy];
+    NSMutableString *text = [@"v2" mutableCopy];  // bump when copies are built differently, so installs rebuild
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];
         NSString *exec = [app[@"bundlePath"] stringByAppendingFormat:@"/PlugIns/%@/%@", s[1], s[2][@"CFBundleExecutable"]];
@@ -236,10 +245,25 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
 
         NSMutableDictionary *info = [guestInfo mutableCopy];
         NSString *appName = guest[@"name"] ?: @"App";
-        NSString *extName = guestInfo[@"CFBundleDisplayName"] ?: guestInfo[@"CFBundleName"] ?: appName;
-        // Keep the app's name visible, as Shortcuts does: "<App> <Extension>" unless it already says it.
-        info[@"CFBundleDisplayName"] = [extName.lowercaseString containsString:appName.lowercaseString] ? extName
-                                       : [NSString stringWithFormat:@"%@ %@", appName, extName];
+        NSString *lcName = lcInfo[@"CFBundleDisplayName"] ?: lcInfo[@"CFBundleName"] ?: @"LiveContainer";
+        NSString *name = copyName(point, appName, guestInfo[@"CFBundleDisplayName"] ?: guestInfo[@"CFBundleName"], lcName);
+        info[@"CFBundleDisplayName"] = name;
+        info[@"CFBundleName"] = name;
+        // Localized names would override the ones above; rename those too.
+        for (NSString *lproj in [fm contentsOfDirectoryAtPath:dst error:nil]) {
+            if (![lproj hasSuffix:@".lproj"]) continue;
+            NSString *stringsPath = [dst stringByAppendingFormat:@"/%@/InfoPlist.strings", lproj];
+            NSMutableDictionary *strings = [[NSDictionary dictionaryWithContentsOfFile:stringsPath] mutableCopy];
+            if (!strings[@"CFBundleDisplayName"] && !strings[@"CFBundleName"]) continue;
+            NSString *localized = copyName(point, appName, strings[@"CFBundleDisplayName"] ?: strings[@"CFBundleName"], lcName);
+            strings[@"CFBundleDisplayName"] = localized;
+            strings[@"CFBundleName"] = localized;
+            [strings writeToFile:stringsPath atomically:YES];
+        }
+        // A File Provider keeps its documents in an app group it has: LiveContainer's.
+        if (info[@"NSExtensionFileProviderDocumentGroup"] || [point isEqualToString:kLCPointFileProvider]) {
+            info[@"NSExtensionFileProviderDocumentGroup"] = [LCSharedUtils appGroupID];
+        }
         info[@"CFBundleIdentifier"] = [NSString stringWithFormat:@"%@.lcx%@", lcBundleId, hash];
         info[@"CFBundleShortVersionString"] = lcInfo[@"CFBundleShortVersionString"];
         info[@"CFBundleVersion"] = lcInfo[@"CFBundleVersion"];
@@ -253,23 +277,6 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     }
     NSDictionary *state = @{@"signature": [self signatureForApps:apps]};
     return [state writeToURL:[app URLByAppendingPathComponent:kStateFile] error:error];
-}
-
-+ (void)removeLeftoversInApps:(NSArray<NSString *> *)bundlePaths {
-    NSFileManager *fm = NSFileManager.defaultManager;
-    for (NSString *bundlePath in bundlePaths) {
-        NSString *plugins = [bundlePath stringByAppendingPathComponent:@"PlugIns"];
-        for (NSString *name in [fm contentsOfDirectoryAtPath:plugins error:nil]) {
-            for (NSString *junk in @[@"LCExtension.dylib", @"LCBroadcast.dylib"]) {
-                [fm removeItemAtPath:[plugins stringByAppendingFormat:@"/%@/%@", name, junk] error:nil];
-            }
-        }
-    }
-    NSUserDefaults *shared = [[NSUserDefaults alloc] initWithSuiteName:[LCSharedUtils appGroupID]];
-    for (NSString *key in @[@"LCGuestExtensions", @"LCGuestExtensionChoice", @"LCGuestExtensionPermissions",
-                            @"LCFileProviderDomains", @"LCBroadcastGuest", @"LCBroadcastGuests"]) {
-        [shared removeObjectForKey:key];
-    }
 }
 
 @end

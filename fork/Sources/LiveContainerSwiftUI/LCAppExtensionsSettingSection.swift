@@ -5,7 +5,7 @@
 //  "App Extensions" in an app's settings: one switch per feature LiveContainer can add for the app
 //  (its Shortcuts actions and each kind of extension it has). Grayed out: the app doesn't have it. All
 //  off by default. Apply Changes rebuilds LiveContainer once through the built-in SideStore (LCSelfUpdate).
-//  Files, iMessage and SMS Filter work for one app at a time; turning one on here turns it off for the
+//  Files, iMessage, Screen Broadcast and SMS Filter work for one app at a time; turning one on here turns it off for the
 //  previous app (also selectable in LiveContainer's Settings, LCSingleAppExtensionsSection).
 //
 
@@ -74,7 +74,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files, iMessage and SMS Filter work for one app at a time."
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files, iMessage, Screen Broadcast and SMS Filter work for one app at a time."
                  : "Change these in the main LiveContainer.")
         }
     }

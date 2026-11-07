@@ -35,14 +35,15 @@ built-in SideStore under My Apps.
 
 Turn on an app's extensions in its settings in LiveContainer, under **App Extensions**. LiveContainer adds
 the app's own extensions to itself, the same way it adds Shortcuts actions, and the built-in SideStore
-reinstalls it. Each app keeps its own entry, named after the app: its keyboard, its share and action
-items, its widgets (with Live Activities and controls), its Safari content blocker, photo editing,
-call blocking and screen broadcast. The apps need no changes, and no extra App IDs are used.
+reinstalls it. The apps need no changes, and no extra App IDs are used. Names follow three rules:
 
+- Kinds several apps can have (share, actions, widgets, keyboards, Safari content blockers, photo editing,
+  call blocking) show as **App - Extension**, for example "LCTestApp - Content Blocker".
+- Where iOS groups by app (keyboards, the widget gallery), they're grouped under LiveContainer.
+- Kinds for one app at a time (**Files, iMessage, Screen Broadcast, SMS Filter**) show as **LiveContainer**.
+  Pick the app in its settings or in LiveContainer's **Settings → App Extensions**.
 - Every switch is off by default. Grayed out: the app doesn't have that kind. Tap **Apply Changes**
   when done; LiveContainer reinstalls once.
-- **Files, iMessage and SMS Filter** work for one app at a time, as iOS allows one per app. Pick the app in
-  its settings or in LiveContainer's **Settings → App Extensions**.
 - Turning a switch off or deleting the app removes its extension at the next rebuild.
 - Keyboards also need **Allow Full Access** in iOS Settings to reach the app's data.
 - App developers: see [EXTENSIONS_FOR_APP_DEVELOPERS.md](fork/EXTENSIONS_FOR_APP_DEVELOPERS.md).

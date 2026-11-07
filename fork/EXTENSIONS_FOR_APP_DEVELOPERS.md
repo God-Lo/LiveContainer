@@ -21,7 +21,8 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
 
 - Supported kinds: widgets (with Live Activities and controls), share, action, File Provider, Safari
   content blocker, photo editing, iMessage, call directory, keyboard, broadcast upload, SMS filter.
-- File Provider, iMessage and SMS filter: one app at a time in LiveContainer.
+- File Provider, iMessage, broadcast upload and SMS filter: one app at a time in LiveContainer, shown as
+  "LiveContainer". Other kinds are shown as "<App> - <Extension>".
 - Your extension gets only LiveContainer's app groups, never other entitlements (push, iCloud, keychain
   sharing, Network Extension, AutoFill and similar don't work).
 - Keyboards need Allow Full Access to reach your app's data; without it they get a data folder of their

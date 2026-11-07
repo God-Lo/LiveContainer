@@ -47,7 +47,8 @@ static inline NSString *LCGuestExtensionKindName(NSString *point) {
              kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
 }
 
-/// iOS allows one extension of these kinds per app, so LiveContainer can run them for one app at a time.
+/// Kinds LiveContainer offers for one app at a time (iOS allows one per app, or one is all that makes
+/// sense): the app is picked in Settings, and iOS sees them under LiveContainer's own name.
 static inline BOOL LCGuestExtensionIsSingleApp(NSString *point) {
-    return [@[kLCPointFileProvider, kLCPointMessages, kLCPointMessageFilter] containsObject:point];
+    return [@[kLCPointFileProvider, kLCPointMessages, kLCPointMessageFilter, kLCPointBroadcast] containsObject:point];
 }

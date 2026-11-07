@@ -26,8 +26,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSSet<NSString *> *)installedFolders;
 /// Replaces the copied extensions in `app` (a writable copy of LiveContainer.app) with these apps'.
 + (BOOL)addExtensionsOfApps:(NSArray<NSDictionary *> *)apps toApp:(NSURL *)app error:(NSError **)error;
-/// Removes what earlier builds of this fork left in apps' bundles and shared settings.
-+ (void)removeLeftoversInApps:(NSArray<NSString *> *)bundlePaths;
 @end
 
 NS_ASSUME_NONNULL_END

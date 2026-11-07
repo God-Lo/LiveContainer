@@ -148,9 +148,7 @@ enum LCSelfUpdate {
     /// contain nothing but those files are touched; apps' own temporary files are left alone.
     static func cleanUpLeftovers() {
         guard LCGuestIntentsIndexer.isPrimaryLiveContainer else { return }
-        let bundlePaths = allApps.compactMap { $0.bundlePath() }
         DispatchQueue.global(qos: .utility).async {
-            LCGuestExtensionBuilder.removeLeftovers(inApps: bundlePaths)
             let fm = FileManager.default
             try? fm.removeItem(at: LCPath.docPath.appendingPathComponent("LCSelfUpdate"))
             let tmp = fm.temporaryDirectory
