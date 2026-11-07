@@ -11,6 +11,7 @@
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
 #import "../SideStoreSupport/XPCServer.h"
+#import "Fork/LCGuestIntentProtocol.h"
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
 @end
@@ -96,6 +97,8 @@ int LiveProcessMain(int argc, char *argv[]) {
         
     }
 
+    // fork: Shortcuts actions forwarded from LiveContainer to this guest
+    LCGuestIntentClientSetup(appInfo);
     
     return LiveContainerMain(argc, argv);
 }

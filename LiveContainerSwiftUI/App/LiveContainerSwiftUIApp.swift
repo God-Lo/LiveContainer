@@ -95,6 +95,18 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
         DataManager.shared.model.hiddenApps = tempHiddenApps
         DataManager.shared.model.appDataFolderNames = tempAppDataFolderNames
         DataManager.shared.model.tweakFolderNames = tempTweakFolderNames
+        // fork: record guest App Intents for Shortcuts
+        LCGuestIntentsIndexer.reindex(apps: (tempApps + tempHiddenApps).map { $0.appInfo }) {
+            LCShortcutsSelfUpdate.cleanUpLeftovers()
+            LCShortcutsSelfUpdate.offerIfNeeded(.launch)
+        }
+        // fork: prepare screen broadcast for apps that have it (nothing to turn on)
+        if LCGuestIntentsIndexer.isPrimaryLiveContainer {
+            LCBroadcastPreparer.syncApps((tempApps + tempHiddenApps).map {
+                ["bundlePath": $0.appInfo.bundlePath() ?? "", "folder": $0.appInfo.relativeBundlePath ?? "",
+                 "isShared": $0.appInfo.isShared]
+            })
+        }
         if let tempURLSchemes {
             UserDefaults.lcShared().set(Array(tempURLSchemes), forKey: "LCGuestURLSchemes")
         }

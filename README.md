@@ -1,3 +1,5 @@
+> **Fork:** this is a fork of LiveContainer that adds Shortcuts actions and screen broadcast for apps inside it. See [fork/README.md](fork/README.md). Not affiliated with or endorsed by Apple or the LiveContainer team.
+
 <div align="center">
    <img width="217" height="217" src="./screenshots/livecontainer_icon.png" alt="Logo">
 </div>
