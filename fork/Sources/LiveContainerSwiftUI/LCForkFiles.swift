@@ -24,12 +24,24 @@ enum LCForkFiles {
         // LiveContainer's File Provider (replicated) needs iOS 16.
         guard #available(iOS 16.0, *) else { return }
         let domain = NSFileProviderDomain(identifier: NSFileProviderDomainIdentifier("LiveContainer"), displayName: "LiveContainer")
-        if list.isEmpty {
-            NSFileProviderManager.remove(domain) { _ in }
-        } else {
-            NSFileProviderManager.add(domain) { error in
-                if let error { NSLog("[LCForkFiles] add domain: \(error)") }
-                NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer) { _ in }
+        // Locations apps added on their own in earlier builds aren't used any more: remove them all (the
+        // hook that ignores apps' requests doesn't apply to removeAllDomains), then add LiveContainer's.
+        NSFileProviderManager.getDomainsWithCompletionHandler { domains, _ in
+            let stale = domains.contains { $0.identifier != domain.identifier }
+            let finish = {
+                if list.isEmpty {
+                    NSFileProviderManager.remove(domain) { _ in }
+                } else {
+                    NSFileProviderManager.add(domain) { error in
+                        if let error { NSLog("[LCForkFiles] add domain: \(error)") }
+                        NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer) { _ in }
+                    }
+                }
+            }
+            if stale {
+                NSFileProviderManager.removeAllDomains { _ in finish() }
+            } else {
+                finish()
             }
         }
     }
