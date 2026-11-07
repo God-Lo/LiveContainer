@@ -14,15 +14,17 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   they share data. Any group ID works.
 - Calls that name your extension by its bundle ID are pointed at its copy: `SFContentBlockerManager`
   reload/state, `CXCallDirectoryManager` reload/status, and `RPSystemBroadcastPickerView.preferredExtension`.
-- File Provider domains your app adds are served by your File Provider.
+- Files: LiveContainer shows your app's Documents as a folder in its own Files location. Your File Provider
+  extension isn't used, and domains your app adds are ignored (the request still succeeds).
 - Frameworks in your app's `Frameworks/` that the extension links are copied next to it.
 
 ## Limits
 
-- Supported kinds: widgets (with Live Activities and controls), share, action, File Provider, Safari
+- Supported kinds: widgets (with Live Activities and controls), share, action, Safari
   content blocker, photo editing, iMessage, call directory, keyboard, broadcast upload, SMS filter.
-- File Provider, iMessage, broadcast upload and SMS filter: one app at a time in LiveContainer, shown as
-  "LiveContainer". Other kinds are shown as "<App> - <Extension>".
+- iMessage and SMS filter: one app at a time in LiveContainer, shown as "LiveContainer".
+  Share extensions are listed in LiveContainer's share item under "Share With". Other kinds are shown as
+  "<App> - <Extension>".
 - Your extension gets only LiveContainer's app groups, never other entitlements (push, iCloud, keychain
   sharing, Network Extension, AutoFill and similar don't work).
 - Keyboards need Allow Full Access to reach your app's data; without it they get a data folder of their

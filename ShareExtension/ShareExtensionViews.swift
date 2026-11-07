@@ -15,6 +15,7 @@ struct ShareExtensionRootView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     let suggested = viewModel.suggestedApps()
                     suggestedSection(apps: suggested, showsInstallAction: viewModel.shouldShowInstallAction())
+                    LCForkShareSection(extensionContext: extensionContext) // fork
 
                     let regular = viewModel.regularApps()
                     let hiddenApps = viewModel.hiddenRegularApps()

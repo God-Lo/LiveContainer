@@ -26,6 +26,7 @@ extern NSDictionary *guestAppInfo;
 extern NSDictionary *guestContainerInfo;
 extern NSString *lcGuestAppId;
 extern bool isSharedBundle;
+void overwriteMainNSBundle(NSBundle *newBundle);
 
 /// An app's own extension bundle ID -> its copy's bundle ID in this LiveContainer.
 static NSDictionary<NSString *, NSString *> *extensionIdMap;
@@ -79,6 +80,46 @@ static void setUpGuestExtension(NSDictionary *ext) {
     NSLog(@"[LCGuestExtension] %@ for %@ (home %@)", ext[kLCGEAppexBundleId], ext[kLCGEAppName], root ? @"app's" : @"fallback");
 }
 
+/// LiveContainer.app, from any of its processes.
+static NSString *liveContainerAppPath(void) {
+    NSString *path = NSBundle.mainBundle.bundlePath;
+    return [path hasSuffix:@".appex"] ? path.stringByDeletingLastPathComponent.stringByDeletingLastPathComponent : path;
+}
+
+NSArray<NSDictionary *> *LCHostedGuestExtensions(NSString *point) {
+    NSString *folder = [liveContainerAppPath() stringByAppendingPathComponent:kLCHostedExtensionsFolder];
+    NSMutableArray *found = [NSMutableArray new];
+    for (NSString *name in [[NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:nil] sortedArrayUsingSelector:@selector(compare:)]) {
+        NSString *path = [folder stringByAppendingPathComponent:name];
+        NSMutableDictionary *info = [[NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Info.plist"]] mutableCopy];
+        if (!info[kLCGuestExtensionInfoKey] || ![info[@"NSExtension"][@"NSExtensionPointIdentifier"] isEqual:point]) continue;
+        info[@"path"] = path;
+        [found addObject:info];
+    }
+    return found;
+}
+
+BOOL LCLoadHostedGuestExtension(NSDictionary *entry, NSString **error) {
+    static NSString *loaded;
+    NSString *path = entry[@"path"];
+    if (loaded) {
+        if ([loaded isEqualToString:path]) return YES;
+        if (error) *error = @"Another app's extension already ran here. Share again to use this one.";
+        return NO;
+    }
+    setUpGuestExtension(entry[kLCGuestExtensionInfoKey]);
+    NSString *dylib = [path stringByAppendingPathComponent:kLCHostedDylibName];
+    if (!dlopen(dylib.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) {
+        if (error) *error = [NSString stringWithFormat:@"Couldn't load the app's extension: %s", dlerror()];
+        return NO;
+    }
+    // The extension finds its storyboards and resources through Bundle.main.
+    NSBundle *bundle = [NSBundle bundleWithPath:path];
+    if (bundle) overwriteMainNSBundle(bundle);
+    loaded = path;
+    return YES;
+}
+
 static NSString *mapId(NSString *identifier) {
     NSString *mapped = identifier ? extensionIdMap[identifier] : nil;
     return mapped ?: identifier;
@@ -112,6 +153,22 @@ static void installIdHooks(void) {
             };
         });
     }
+    // Apps' own Files locations aren't used inside LiveContainer (it shows a folder per app instead):
+    // their add/remove requests succeed without doing anything. LiveContainer's own location passes.
+    dlopen("/System/Library/Frameworks/FileProvider.framework/FileProvider", RTLD_LAZY);
+    Class fpm = NSClassFromString(@"NSFileProviderManager");
+    for (NSString *name in @[@"addDomain:completionHandler:", @"removeDomain:completionHandler:"]) {
+        SEL sel = NSSelectorFromString(name);
+        replaceMethod(fpm, sel, YES, ^id(IMP orig) {
+            return ^(id self, id domain, void (^completion)(NSError *)) {
+                if ([[domain valueForKey:@"identifier"] isEqual:@"LiveContainer"]) {
+                    ((void (*)(id, SEL, id, id))orig)(self, sel, domain, completion);
+                } else if (completion) {
+                    completion(nil);
+                }
+            };
+        });
+    }
     SEL setPreferred = @selector(setPreferredExtension:);
     replaceMethod(NSClassFromString(@"RPSystemBroadcastPickerView"), setPreferred, NO, ^id(IMP orig) {
         return ^(id self, NSString *identifier) {
@@ -139,5 +196,5 @@ __attribute__((constructor)) static void LCGuestExtensionRuntimeInit(void) {
         if (original && info[@"CFBundleIdentifier"]) map[original] = info[@"CFBundleIdentifier"];
     }
     extensionIdMap = map;
-    if (map.count) installIdHooks();
+    installIdHooks();
 }

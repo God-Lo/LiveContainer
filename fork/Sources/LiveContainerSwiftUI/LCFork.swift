@@ -16,6 +16,7 @@ enum LCFork {
     /// LiveContainer read its app list at launch.
     static func appsLoaded(_ apps: [LCAppInfo]) {
         LCSelfUpdate.cleanUpLeftovers()
+        LCForkFiles.sync()
         LCGuestIntentsIndexer.reindex(apps: apps) {
             LCSelfUpdate.offerIfNeeded(.launch)
         }
@@ -42,6 +43,7 @@ enum LCFork {
         if !folder.isEmpty, let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: LCSharedUtils.appGroupID()) {
             try? FileManager.default.removeItem(at: group.appendingPathComponent("LiveContainer/Data/ExtensionHome/\(folder)"))
         }
+        LCForkFiles.sync()
         LCGuestIntentsIndexer.reindex(apps: remaining) {
             LCSelfUpdate.offerIfNeeded(.uninstalled(bundleId: removedId, folder: folder, name: app.displayName() ?? removedId))
         }

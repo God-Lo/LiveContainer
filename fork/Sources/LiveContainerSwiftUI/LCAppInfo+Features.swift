@@ -29,7 +29,10 @@ extension LCAppInfo {
 
     /// Extension points of this app's extensions that LiveContainer can run.
     var supportedExtensionPoints: [String] {
-        LCGuestExtensionBuilder.supportedPoints(inBundle: bundlePath())
+        // Files works for every app (LiveContainer's own File Provider shows the app's Documents).
+        var points = LCGuestExtensionBuilder.supportedPoints(inBundle: bundlePath())
+        if !points.contains(LCForkFiles.fileProviderPoint) { points.append(LCForkFiles.fileProviderPoint) }
+        return points
     }
 
     /// Extension points turned on for this app.

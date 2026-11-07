@@ -110,6 +110,13 @@ static NSError *LCSIError(NSString *message) {
             bid = [original stringByAppendingString:[bid substringFromIndex:installed.length]];
             info[@"CFBundleIdentifier"] = bid;
         }
+        // A File Provider must name an app group it has: LiveContainer's actual one (with the team ID
+        // SideStore adds, which an IPA built on a Mac can't know).
+        if (info[@"NSExtension"][@"NSExtensionFileProviderDocumentGroup"]) {
+            NSMutableDictionary *ext = [info[@"NSExtension"] mutableCopy];
+            ext[@"NSExtensionFileProviderDocumentGroup"] = [NSClassFromString(@"LCSharedUtils") performSelector:@selector(appGroupID)];
+            info[@"NSExtension"] = ext;
+        }
         if (![info writeToURL:infoURL error:error]) return NO;
         NSURL *exec = [bundle URLByAppendingPathComponent:info[@"CFBundleExecutable"]];
         if (![self fixEntitlementsOfExecutable:exec installedPrefix:installed originalPrefix:original newBundleId:bid teamId:teamId

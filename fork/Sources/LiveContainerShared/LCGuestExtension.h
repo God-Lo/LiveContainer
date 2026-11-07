@@ -47,8 +47,30 @@ static inline NSString *LCGuestExtensionKindName(NSString *point) {
              kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
 }
 
-/// Kinds LiveContainer offers for one app at a time (iOS allows one per app, or one is all that makes
-/// sense): the app is picked in Settings, and iOS sees them under LiveContainer's own name.
+/// Kinds iOS allows once per app, so LiveContainer offers them for one app at a time: the app is picked
+/// in Settings, and iOS sees them under LiveContainer's own name.
 static inline BOOL LCGuestExtensionIsSingleApp(NSString *point) {
-    return [@[kLCPointFileProvider, kLCPointMessages, kLCPointMessageFilter, kLCPointBroadcast] containsObject:point];
+    return [@[kLCPointMessages, kLCPointMessageFilter] containsObject:point];
 }
+
+/// Files isn't an app's own extension: LiveContainer's File Provider shows a folder per app with Files
+/// turned on (its Documents), so every app can use it and nothing is copied.
+static inline BOOL LCGuestExtensionIsBuiltIn(NSString *point) {
+    return [point isEqualToString:kLCPointFileProvider];
+}
+
+/// Kinds iOS shows only once per app even when there are several: an app's share extension. These are
+/// kept inside LiveContainer without registering them with iOS (LCGuestExtensions/*.lcext), and LiveContainer's
+/// own extension of that kind runs them: its share menu lists them under "Share With".
+static NSString *const kLCHostedExtensionsFolder = @"LCGuestExtensions";
+/// An app's hosted extension executable, converted to a library LiveContainer's extension can load.
+static NSString *const kLCHostedDylibName = @"LCExtension.dylib";
+static inline BOOL LCGuestExtensionIsHosted(NSString *point) {
+    return [point isEqualToString:kLCPointShare];
+}
+
+/// Hosted extensions of this kind in the running LiveContainer: each is its Info.plist plus "path".
+NSArray<NSDictionary *> *LCHostedGuestExtensions(NSString *point);
+/// Sets up the app's environment in this process and loads the hosted extension's code; afterwards
+/// Bundle.main is the extension's bundle. One app per process. Returns NO with a reason on failure.
+BOOL LCLoadHostedGuestExtension(NSDictionary *entry, NSString *_Nullable *_Nullable error);

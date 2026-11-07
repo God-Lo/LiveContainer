@@ -101,6 +101,7 @@ enum LCSelfUpdate {
     static func applySettingChange() {
         guard LCGuestIntentsIndexer.isPrimaryLiveContainer else { return }
         let apps = allApps
+        LCForkFiles.sync()
         LCGuestIntentsIndexer.reindex(apps: apps) {
             let p = pending(apps)
             // Switched back before anything was applied: nothing to do.

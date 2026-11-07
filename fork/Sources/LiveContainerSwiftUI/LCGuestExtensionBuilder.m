@@ -8,6 +8,7 @@
 #import <mach-o/loader.h>
 #import "../../../LiveContainer/LCMachOUtils.h"
 #import "../../../LiveContainer/LCSharedUtils.h"
+#import "../../../LiveContainerSwiftUI/Utilities/LCUtils.h"
 #import "../LiveContainerShared/LCGuestExtension.h"
 
 static NSString *const kStateFile = @"LCGuestExtensionsState.plist";
@@ -135,7 +136,8 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     for (NSDictionary *app in apps) {
         NSDictionary *appexes = [self appexesInBundle:app[@"bundlePath"]];
         for (NSString *appex in [appexes.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
-            if ([app[@"points"] containsObject:pointOf(appexes[appex])]) [result addObject:@[app, appex, appexes[appex]]];
+            NSString *point = pointOf(appexes[appex]);
+            if (!LCGuestExtensionIsBuiltIn(point) && [app[@"points"] containsObject:point]) [result addObject:@[app, appex, appexes[appex]]];
         }
     }
     [result sortUsingComparator:^NSComparisonResult(NSArray *a, NSArray *b) {
@@ -146,8 +148,12 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
 
 + (NSString *)signatureForApps:(NSArray<NSDictionary *> *)apps {
     NSArray *selected = [self selectedExtensions:apps];
-    if (!selected.count) return @"";
-    NSMutableString *text = [@"v2" mutableCopy];  // bump when copies are built differently, so installs rebuild
+    // Files needs one rebuild too: the File Provider's document group is set to LiveContainer's real
+    // app group then (LCSelfIPABuilder).
+    BOOL files = [[apps valueForKeyPath:@"@unionOfArrays.points"] containsObject:kLCPointFileProvider];
+    if (!selected.count && !files) return @"";
+    NSMutableString *text = [@"v4" mutableCopy];  // bump when copies are built differently, so installs rebuild
+    if (files) [text appendString:@"|files"];
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];
         NSString *exec = [app[@"bundlePath"] stringByAppendingFormat:@"/PlugIns/%@/%@", s[1], s[2][@"CFBundleExecutable"]];
@@ -200,9 +206,12 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
         NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[plugins stringByAppendingFormat:@"/%@/Info.plist", name]];
         if (info[kLCGuestExtensionInfoKey]) [fm removeItemAtPath:[plugins stringByAppendingPathComponent:name] error:nil];
     }
+    NSString *hosted = [app.path stringByAppendingPathComponent:kLCHostedExtensionsFolder];
+    [fm removeItemAtPath:hosted error:nil];
     NSDictionary *lcInfo = [NSDictionary dictionaryWithContentsOfFile:[app.path stringByAppendingPathComponent:@"Info.plist"]];
     NSString *lcBundleId = NSBundle.mainBundle.bundleIdentifier;  // the rebuild fixes the prefix afterwards
     NSSet *singleDone = [NSMutableSet new];
+    NSMutableArray<NSURL *> *toSign = [NSMutableArray new];  // hosted code, signed with LiveContainer's certificate
 
     for (NSArray *s in [self selectedExtensions:apps]) {
         NSDictionary *guest = s[0], *guestInfo = s[2];
@@ -213,7 +222,10 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
         }
         NSString *src = [guest[@"bundlePath"] stringByAppendingFormat:@"/PlugIns/%@", appexName];
         NSString *hash = [sha256Hex([[NSString stringWithFormat:@"%@/%@", guest[@"folder"], appexName] dataUsingEncoding:NSUTF8StringEncoding]) substringToIndex:10];
-        NSString *dst = [plugins stringByAppendingFormat:@"/LCX%@.appex", hash];
+        BOOL isHosted = LCGuestExtensionIsHosted(point);
+        // Hosted copies aren't .appex, so neither iOS nor SideStore treats them as extensions.
+        NSString *dst = isHosted ? [hosted stringByAppendingFormat:@"/LCX%@.lcext", hash] : [plugins stringByAppendingFormat:@"/LCX%@.appex", hash];
+        [fm createDirectoryAtPath:dst.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
         if (![fm copyItemAtPath:src toPath:dst error:error]) return NO;
         for (NSString *junk in @[@"_CodeSignature", @"embedded.mobileprovision", @"SC_Info", @"LCExtension.dylib", @"LCBroadcast.dylib"]) {
             [fm removeItemAtPath:[dst stringByAppendingPathComponent:junk] error:nil];
@@ -222,25 +234,55 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
         // Frameworks from the app that the extension uses, next to it (the extension looks in
         // @executable_path/Frameworks; @executable_path/../../Frameworks is LiveContainer's now).
         NSString *exec = [dst stringByAppendingPathComponent:guestInfo[@"CFBundleExecutable"]];
+        NSMutableSet *frameworks = [NSMutableSet new];
         if (![self copyFrameworksFor:exec from:[guest[@"bundlePath"] stringByAppendingPathComponent:@"Frameworks"]
-                                  to:[dst stringByAppendingPathComponent:@"Frameworks"] done:[NSMutableSet new] error:error]) return NO;
+                                  to:[dst stringByAppendingPathComponent:@"Frameworks"] done:frameworks error:error]) return NO;
 
-        // Load LiveContainer's runtime first, so the app's environment is set up before its code runs.
-        __block NSString *patchError = nil;
-        NSString *parseError = LCParseMachO(exec.fileSystemRepresentation, false, ^(const char *path, struct mach_header_64 *header, int fd, void *filePtr) {
-            if (LCIsMachOEncrypted(header)) { patchError = @"is encrypted"; return; }
-            uint64_t need = 0;
-            BOOL needRuntime = !hasCommand(header, LC_LOAD_DYLIB, kRuntimePath);
-            BOOL needRPath = !hasCommand(header, LC_RPATH, "@executable_path/Frameworks");
-            if (needRuntime) need += sizeof(struct dylib_command) + rnd8((uint32_t)strlen(kRuntimePath) + 1);
-            if (needRPath) need += sizeof(struct rpath_command) + rnd8((uint32_t)strlen("@executable_path/Frameworks") + 1);
-            if (headerRoom(header) < need) { patchError = @"has no room for LiveContainer's loader"; return; }
-            if (needRPath) appendCommand(header, LC_RPATH, "@executable_path/Frameworks");
-            if (needRuntime) appendCommand(header, LC_LOAD_DYLIB, kRuntimePath);
-        });
-        if (parseError || patchError) {
-            if (error) *error = LCGEBError([NSString stringWithFormat:@"%@'s %@ %@.", guest[@"name"], appexName, patchError ?: parseError]);
-            return NO;
+        if (isHosted) {
+            // Not registered with iOS: LiveContainer's own extension loads this code as a library.
+            NSString *dylib = [dst stringByAppendingPathComponent:kLCHostedDylibName];
+            if (![fm moveItemAtPath:exec toPath:dylib error:error]) return NO;
+            __block NSString *patchError = nil;
+            NSString *parseError = LCParseMachO(dylib.fileSystemRepresentation, false, ^(const char *path, struct mach_header_64 *header, int fd, void *filePtr) {
+                if (LCIsMachOEncrypted(header)) { patchError = @"is encrypted"; return; }
+                LCPatchExecSlice(path, header, false);
+                const char *rpath = "@loader_path/Frameworks";
+                if (!hasCommand(header, LC_RPATH, rpath)) {
+                    if (headerRoom(header) < sizeof(struct rpath_command) + rnd8((uint32_t)strlen(rpath) + 1)) { patchError = @"has no room for a search path"; return; }
+                    appendCommand(header, LC_RPATH, rpath);
+                }
+            });
+            if (parseError || patchError) {
+                if (error) *error = LCGEBError([NSString stringWithFormat:@"%@'s %@ %@.", guest[@"name"], appexName, patchError ?: parseError]);
+                return NO;
+            }
+            [toSign addObject:[NSURL fileURLWithPath:dylib]];
+            for (NSString *framework in frameworks) {
+                NSString *fwPath = [dst stringByAppendingFormat:@"/Frameworks/%@", framework];
+                NSString *binary = [framework hasSuffix:@".framework"] ? [fwPath stringByAppendingPathComponent:framework.stringByDeletingPathExtension] : fwPath;
+                [toSign addObject:[NSURL fileURLWithPath:binary]];
+            }
+        }
+
+        if (!isHosted) {
+            // Load LiveContainer's runtime first, so the app's environment is set up before its code runs.
+            __block NSString *patchError = nil;
+            NSString *parseError = LCParseMachO(exec.fileSystemRepresentation, false, ^(const char *path, struct mach_header_64 *header, int fd, void *filePtr) {
+                if (LCIsMachOEncrypted(header)) { patchError = @"is encrypted"; return; }
+                uint64_t need = 0;
+                BOOL needRuntime = !hasCommand(header, LC_LOAD_DYLIB, kRuntimePath);
+                BOOL needRPath = !hasCommand(header, LC_RPATH, "@executable_path/Frameworks");
+                if (needRuntime) need += sizeof(struct dylib_command) + rnd8((uint32_t)strlen(kRuntimePath) + 1);
+                if (needRPath) need += sizeof(struct rpath_command) + rnd8((uint32_t)strlen("@executable_path/Frameworks") + 1);
+                if (headerRoom(header) < need) { patchError = @"has no room for LiveContainer's loader"; return; }
+                if (needRPath) appendCommand(header, LC_RPATH, "@executable_path/Frameworks");
+                if (needRuntime) appendCommand(header, LC_LOAD_DYLIB, kRuntimePath);
+            });
+            if (parseError || patchError) {
+                if (error) *error = LCGEBError([NSString stringWithFormat:@"%@'s %@ %@.", guest[@"name"], appexName, patchError ?: parseError]);
+                return NO;
+            }
+
         }
 
         NSMutableDictionary *info = [guestInfo mutableCopy];
@@ -272,6 +314,26 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
                                            kLCGEAppexBundleId: guestInfo[@"CFBundleIdentifier"] ?: @""};
         if (![info writeToFile:[dst stringByAppendingPathComponent:@"Info.plist"] atomically:YES]) {
             if (error) *error = LCGEBError(@"Couldn't write an extension's Info.plist.");
+            return NO;
+        }
+    }
+    if (toSign.count) {
+        // An extension of LiveContainer can only load code signed by the same team.
+        if (!LCUtils.certificateData) {
+            if (error) *error = LCGEBError(@"Apps' share extensions need LiveContainer's signing certificate (JIT-less mode). Set it up in LiveContainer's settings.");
+            return NO;
+        }
+        __block BOOL signedOK = NO;
+        __block NSError *signError = nil;
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        [LCUtils signFilesWithZSignWithURLs:toSign completionHandler:^(BOOL success, NSError *e) {
+            signedOK = success;
+            signError = e;
+            dispatch_semaphore_signal(done);
+        }];
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        if (!signedOK) {
+            if (error) *error = signError ?: LCGEBError(@"Signing apps' share extensions failed.");
             return NO;
         }
     }
