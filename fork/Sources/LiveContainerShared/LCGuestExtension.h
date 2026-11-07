@@ -56,10 +56,9 @@ static inline NSArray<NSString *> *LCGuestExtensionPoints(void) {
 static inline NSString *LCGuestExtensionKindName(NSString *point) {
     return @{kLCPointBroadcast: @"Screen Broadcast", kLCPointShare: @"Share", kLCPointAction: @"Actions",
              kLCPointKeyboard: @"Keyboard", kLCPointContentBlocker: @"Safari Content Blocker",
-             kLCPointFileProvider: @"Files", kLCPointWidgets: @"Widgets & Live Activities",
-             kLCPointPhotoEditing: @"Photo Editing", kLCPointMessages: @"iMessage App",
-             kLCPointCallDirectory: @"Call Blocking & Identification",
-             kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
+             kLCPointFileProvider: @"Files", kLCPointWidgets: @"Widgets",
+             kLCPointPhotoEditing: @"Photo Editing", kLCPointMessages: @"iMessage",
+             kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
 }
 
 /// Kinds that can see private data (the screen, what you type, your messages). An app's extension of

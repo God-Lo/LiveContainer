@@ -47,9 +47,9 @@ LiveContainer runs these kinds of extensions from your apps, with no changes to 
 | Call blocking, SMS filter | Settings → Phone / Messages |
 
 - Each kind runs the app you opened most recently. Share and Actions ask which app when several have one.
-- Widgets come from one app at a time: pick it with **Show This App's Widgets** in its settings.
+- Widgets come from one app at a time: the one with **Widgets** turned on in its settings.
 - **Keyboard, Screen Broadcast and SMS Filter** can see private data. They stay off until you allow them
-  in the app's settings in LiveContainer, under **App Extensions**.
+  in the app's settings in LiveContainer, under **App Extensions**, where every feature has a switch.
 - Needs LiveContainer's signing certificate (JIT-less mode).
 - App developers: see [EXTENSIONS_FOR_APP_DEVELOPERS.md](fork/EXTENSIONS_FOR_APP_DEVELOPERS.md).
 

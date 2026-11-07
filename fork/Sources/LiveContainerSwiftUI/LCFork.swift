@@ -59,7 +59,6 @@ struct LCForkAppSettingsSections: View {
     let appInfo: LCAppInfo
 
     var body: some View {
-        LCShortcutsSettingSection(appInfo: appInfo)
-        LCGuestExtensionsSettingSection(appInfo: appInfo)
+        LCAppExtensionsSettingSection(appInfo: appInfo)
     }
 }
