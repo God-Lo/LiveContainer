@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.4",
+          "buildVersion": "3.8.11.4",
+          "date": "2026-11-07T17:11:02Z",
+          "localizedDescription": "Adds Settings → Check for Updates and a check at launch. Each fork release now has its own version, so SideStore shows updates. Includes everything from 3.8.11.3: your apps' extensions run through LiveContainer.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.4/LiveContainer+SideStore.ipa",
+          "size": 23866327,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11",
           "buildVersion": "3.8.11.3",
           "date": "2026-11-07T16:46:56Z",
