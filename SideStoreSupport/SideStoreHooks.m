@@ -99,7 +99,8 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
     static NSURL* sourceURL = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        sourceURL = [NSURL URLWithString:@"https://github.com/LiveContainer/LiveContainer/releases/download/1.0/apps_ss_lc.json"];
+        // fork: the built-in source is this fork's source, so LiveContainer updates come from it
+        sourceURL = [NSURL URLWithString:@"https://raw.githubusercontent.com/God-Lo/LiveContainer/main/source.json"];
     });
     return sourceURL;
 }

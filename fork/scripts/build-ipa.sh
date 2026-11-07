@@ -36,6 +36,25 @@ if [ -n "${FORK_BUILD:-}" ]; then
   echo "==> Build number $VER.$FORK_BUILD"
 fi
 
+# Sign the app and its extensions with their entitlements, the same as upstream's CI (placeholder team
+# AAAAA11111). SideStore takes app groups from these; without them LiveContainer loses its app group.
+echo "==> Signing with entitlements"
+APP="$WORK/archive.xcarchive/Products/Applications/LiveContainer.app"
+sign() {  # sign <binary> <entitlements file> <bundle id>
+  sed -e 's/\$(AppIdentifierPrefix)/AAAAA11111./g' -e 's/\$(DEVELOPMENT_TEAM)/AAAAA11111/g' \
+      -e "s/\$(PRODUCT_BUNDLE_IDENTIFIER)/$3/g" \
+      -e 's/\$(APP_GROUP_SIDESTORE)/group.com.SideStore.SideStore/g' \
+      -e 's/\$(APP_GROUP_ALTSTORE)/group.com.rileytestut.AltStore/g' "$2" > "$WORK/ent.plist"
+  ldid -S"$WORK/ent.plist" "$1"
+}
+bid() { /usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$1/Info.plist"; }
+exe() { echo "$1/$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$1/Info.plist")"; }
+sign "$(exe "$APP")" "$ROOT/entitlements.xml" "$(bid "$APP")"
+for name in LaunchAppExtension LiveBroadcastExtension LiveProcess ShareExtension; do
+  sign "$(exe "$APP/PlugIns/$name.appex")" "$ROOT/$name/$name.entitlements" "$(bid "$APP/PlugIns/$name.appex")"
+done
+grep -q "group.com.SideStore.SideStore" < <(ldid -e "$(exe "$APP")") || { echo "Signing failed: no app group"; exit 1; }
+
 echo "==> Packaging with upstream's .github/build_github.sh"
 ln -s "$ROOT/.github" "$WORK/.github"
 ( cd "$WORK" && scheme=LiveContainer archive_path=archive sh .github/build_github.sh > "$OUT/package.log" 2>&1 ) \
