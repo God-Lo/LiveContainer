@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.11",
+          "buildVersion": "3.8.11.11",
+          "date": "2026-11-07T20:23:53Z",
+          "localizedDescription": "Files: each app with Files turned on gets its own location in the Files app, \"LiveContainer – App\", showing its Documents. Old LiveContainer locations are removed.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.11/LiveContainer+SideStore.ipa",
+          "size": 23822951,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.10",
           "buildVersion": "3.8.11.10",
           "date": "2026-11-07T20:16:03Z",
