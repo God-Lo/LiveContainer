@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.7",
+          "buildVersion": "3.8.11.7",
+          "date": "2026-11-07T19:21:06Z",
+          "localizedDescription": "Apps' extensions get clear names: \"App - Extension\" for kinds several apps can have, \"LiveContainer\" for Files, iMessage, Screen Broadcast and SMS Filter (one app at a time). Fixes adding a Files location.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.7/LiveContainer+SideStore.ipa",
+          "size": 23793298,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.6",
           "buildVersion": "3.8.11.6",
           "date": "2026-11-07T18:20:18Z",
