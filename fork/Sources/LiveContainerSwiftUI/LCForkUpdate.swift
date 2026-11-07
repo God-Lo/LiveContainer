@@ -2,9 +2,9 @@
 //  LCForkUpdate.swift
 //  LiveContainer (fork)
 //
-//  Checks this fork's source for a newer release, at launch and from Settings → Check for Updates.
-//  "Update" downloads the IPA and hands it to the built-in SideStore, which reinstalls LiveContainer
-//  over itself (same App ID, data kept). Doesn't depend on SideStore noticing the update.
+//  Checks this fork's source for a newer release, at launch and from Settings → Check for Updates, and
+//  offers to open the built-in SideStore on My Apps, where the user taps Update. SideStore fetches the
+//  source fresh too (SideStoreHooks.m), so it shows the same release.
 //
 
 import SwiftUI
@@ -80,38 +80,18 @@ enum LCForkUpdate {
         guard UserDefaults.sideStoreExist() else {
             return present("Version \(release.build) is available. Updating needs LiveContainer+SideStore; download it from the fork's Releases page.")
         }
-        let alert = UIAlertController(title: "Update to \(release.build)?",
-                                      message: release.notes + "\n\nThe built-in SideStore reinstalls LiveContainer. Your data is kept.",
+        let alert = UIAlertController(title: "Version \(release.build) is available",
+                                      message: release.notes + "\n\nOpen SideStore's My Apps and tap Update. Your data is kept.",
                                       preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Later", style: .cancel) { _ in
             if rememberLater { UserDefaults.standard.set(release.build, forKey: dismissedKey) }
         })
-        alert.addAction(UIAlertAction(title: "Update", style: .default) { _ in install(release) })
+        alert.addAction(UIAlertAction(title: "Open SideStore", style: .default) { _ in
+            // SideStoreHooks.m switches to My Apps when it sees this.
+            UserDefaults.lcShared().set(true, forKey: "LCSideStoreOpenMyApps")
+            LCUtils.openSideStore()
+        })
         topViewController()?.present(alert, animated: true)
-    }
-
-    @MainActor
-    private static func install(_ release: Release) {
-        let progress = UIAlertController(title: "Downloading \(release.build)…", message: nil, preferredStyle: .alert)
-        topViewController()?.present(progress, animated: true)
-        Task {
-            do {
-                let (tmp, _) = try await URLSession.shared.download(from: release.downloadURL)
-                // Same place as the Shortcuts self-update; cleaned up at the next launch.
-                let dir = LCPath.docPath.appendingPathComponent("LCSelfUpdate")
-                try? FileManager.default.removeItem(at: dir)
-                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                let ipa = dir.appendingPathComponent("LiveContainer.ipa")
-                try FileManager.default.moveItem(at: tmp, to: ipa)
-                await MainActor.run {
-                    progress.dismiss(animated: true) { LCUtils.openSideStore(urlStr: ipa.absoluteString) }
-                }
-            } catch {
-                await MainActor.run {
-                    progress.dismiss(animated: true) { present("Download failed: \(error.localizedDescription)") }
-                }
-            }
-        }
     }
 
     @MainActor

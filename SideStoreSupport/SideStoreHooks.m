@@ -104,6 +104,33 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
     });
     return sourceURL;
 }
+// fork: fetch this fork's source fresh, past the 5-minute caches (the phone's and GitHub's), so SideStore
+// sees a new release as soon as LiveContainer's own update check does.
+static NSURLSessionDataTask *(*SideStoreSession_orig_dataTask)(id self, SEL cmd, NSURLRequest *request, id completion);
+static NSURLSessionDataTask *SideStoreSession_hook_dataTask(id self, SEL cmd, NSURLRequest *request, id completion) {
+    NSURL *source = SideStoreSource_hook_altStoreSourceURL(nil, nil);
+    if ([request.URL.host isEqualToString:source.host] && [request.URL.path isEqualToString:source.path]) {
+        NSURLComponents *components = [NSURLComponents componentsWithURL:source resolvingAgainstBaseURL:NO];
+        components.queryItems = @[[NSURLQueryItem queryItemWithName:@"t" value:@((long)NSDate.date.timeIntervalSince1970).stringValue]];
+        NSMutableURLRequest *fresh = [request mutableCopy];
+        fresh.URL = components.URL;
+        fresh.cachePolicy = NSURLRequestReloadIgnoringLocalAndRemoteCacheData;
+        request = fresh;
+    }
+    return SideStoreSession_orig_dataTask(self, cmd, request, completion);
+}
+
+// fork: LiveContainer's update prompt opens SideStore on My Apps, where the user taps Update.
+static void (*SideStoreTabBar_orig_viewDidAppear)(UITabBarController *self, SEL cmd, BOOL animated);
+static void SideStoreTabBar_hook_viewDidAppear(UITabBarController *self, SEL cmd, BOOL animated) {
+    SideStoreTabBar_orig_viewDidAppear(self, cmd, animated);
+    NSUserDefaults *shared = NSUserDefaults.lcSharedDefaults;
+    if ([shared boolForKey:@"LCSideStoreOpenMyApps"] && self.viewControllers.count > 3) {
+        [shared removeObjectForKey:@"LCSideStoreOpenMyApps"];
+        self.selectedIndex = 3;  // News, Sources, Browse, My Apps, Settings
+    }
+}
+
 // fork: LiveContainer's own update check compares builds (e.g. 3.8.11.4 > 3.8.11.3). SideStore compares
 // versions only, and can't tell which build was installed from a file.
 static BOOL (*SideStoreInstalledApp_orig_hasUpdate)(id self, SEL cmd);
@@ -219,6 +246,14 @@ void installSideStoreHooks(void) {
     Method altStoreSourceURLMethod = class_getClassMethod(PrivClass(Source), @selector(altStoreSourceURL));
     method_setImplementation(altStoreSourceURLMethod, (IMP)SideStoreSource_hook_altStoreSourceURL);
 
+    // fork: fresh source fetches, and opening on My Apps when LiveContainer asks
+    Method dataTaskMethod = class_getInstanceMethod(NSURLSession.class, @selector(dataTaskWithRequest:completionHandler:));
+    SideStoreSession_orig_dataTask = (void *)method_getImplementation(dataTaskMethod);
+    method_setImplementation(dataTaskMethod, (IMP)SideStoreSession_hook_dataTask);
+    Method appearMethod = class_getInstanceMethod(UITabBarController.class, @selector(viewDidAppear:));
+    SideStoreTabBar_orig_viewDidAppear = (void *)method_getImplementation(appearMethod);
+    method_setImplementation(appearMethod, (IMP)SideStoreTabBar_hook_viewDidAppear);
+    
     // fork: updates of LiveContainer itself are found by build number
     Method hasUpdateMethod = class_getInstanceMethod(PrivClass(InstalledApp), @selector(hasUpdate));
     if (hasUpdateMethod) {
