@@ -283,6 +283,8 @@ struct LCSettingsView: View {
                     }
                 }
                 
+                LCForkSettingsSection() // fork
+
                 Section {
                     HStack {
                         Image("GitHub")

@@ -104,6 +104,21 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
     });
     return sourceURL;
 }
+// fork: LiveContainer's own update check compares builds (e.g. 3.8.11.4 > 3.8.11.3). SideStore compares
+// versions only, and can't tell which build was installed from a file.
+static BOOL (*SideStoreInstalledApp_orig_hasUpdate)(id self, SEL cmd);
+static BOOL SideStoreInstalledApp_hook_hasUpdate(id self, SEL cmd) {
+    @try {
+        if ([[self valueForKey:@"bundleIdentifier"] isEqualToString:@"com.kdt.livecontainer"]) {
+            id latest = [self valueForKeyPath:@"storeApp.latestVersion"];
+            NSString *latestBuild = [latest valueForKey:@"buildVersion"] ?: [latest valueForKey:@"version"];
+            NSString *installed = NSUserDefaults.lcMainBundle.infoDictionary[@"CFBundleVersion"];
+            return latestBuild && installed && [latestBuild compare:installed options:NSNumericSearch] == NSOrderedDescending;
+        }
+    } @catch (NSException *e) {}
+    return SideStoreInstalledApp_orig_hasUpdate(self, cmd);
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
 void (*SideStoreMyAppsViewController_orig_viewDidload)(UICollectionViewController* self, SEL cmd) = nil;
@@ -204,6 +219,13 @@ void installSideStoreHooks(void) {
     Method altStoreSourceURLMethod = class_getClassMethod(PrivClass(Source), @selector(altStoreSourceURL));
     method_setImplementation(altStoreSourceURLMethod, (IMP)SideStoreSource_hook_altStoreSourceURL);
 
+    // fork: updates of LiveContainer itself are found by build number
+    Method hasUpdateMethod = class_getInstanceMethod(PrivClass(InstalledApp), @selector(hasUpdate));
+    if (hasUpdateMethod) {
+        SideStoreInstalledApp_orig_hasUpdate = (BOOL (*)(id, SEL))method_getImplementation(hasUpdateMethod);
+        method_setImplementation(hasUpdateMethod, (IMP)SideStoreInstalledApp_hook_hasUpdate);
+    }
+    
     // fork: always keep app extensions signed with the main profile (one App ID), without asking.
     // Choosing Remove All or Keep All in SideStore's User Customizations still sticks; Prompt User doesn't.
     NSString *extensionChoice = [NSUserDefaults.standardUserDefaults stringForKey:@"customizeAppExtensions"];

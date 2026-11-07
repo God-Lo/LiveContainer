@@ -12,7 +12,7 @@ VER=$(git show origin/main:LiveContainer/Info.plist | plutil -extract CFBundleSh
 N=$(python3 -c "
 import json
 v=json.load(open('source.json'))['apps'][0]['versions']
-print(1+max([int(x['buildVersion'].split('.')[-1]) for x in v if x['version']=='$VER'] or [0]))")
+print(1+max([int(x['buildVersion'].split('.')[-1]) for x in v if x['buildVersion'].startswith('$VER.')] or [0]))")
 TAG="$VER.$N"
 NOTES="${NOTES:-Based on LiveContainer $VER.}"
 
@@ -41,7 +41,7 @@ import json, os, sys, datetime
 ipa, repo, ver, tag, notes = sys.argv[1:]
 src = json.load(open("source.json"))
 src["apps"][0]["versions"].insert(0, {
-    "version": ver, "buildVersion": tag,
+    "version": tag, "buildVersion": tag,
     "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "localizedDescription": notes,
     "downloadURL": f"https://github.com/{repo}/releases/download/{tag}/LiveContainer+SideStore.ipa",

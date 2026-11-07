@@ -7,6 +7,7 @@
 //  - LiveContainerSwiftUIApp: LCFork.appsLoaded(...) after the app list is read at launch
 //  - LCAppListView: LCFork.appInstalled(...) after an install or update, LCFork.appRemoved(...) on delete
 //  - LCAppSettingsView: LCForkAppSettingsSections(appInfo:) in each app's settings
+//  - LCSettingsView: LCForkSettingsSection() (Check for Updates)
 //
 
 import SwiftUI
@@ -25,6 +26,7 @@ enum LCFork {
         if LCGuestIntentsIndexer.isPrimaryLiveContainer {
             LCGuestExtensionPreparer.syncApps(apps.map(extensionInfo))
         }
+        LCForkUpdate.checkAtLaunch()
     }
 
     /// An app was installed, or updated (replacing the old copy).

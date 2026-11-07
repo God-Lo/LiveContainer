@@ -17,6 +17,9 @@ https://raw.githubusercontent.com/God-Lo/LiveContainer/main/source.json
 
 Or download `LiveContainer+SideStore.ipa` from [Releases](https://github.com/God-Lo/LiveContainer/releases/latest).
 
+To update: LiveContainer checks at launch, or tap **Settings → Check for Updates**. Updates also show in the
+built-in SideStore under My Apps.
+
 ## What's new
 
 **Shortcuts for your apps**

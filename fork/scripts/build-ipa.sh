@@ -7,7 +7,8 @@
 # Output: fork/out/LiveContainer+SideStore.ipa (and LiveContainer.ipa without SideStore). Build files are
 # removed afterwards; on failure the logs stay in fork/out for inspection.
 #
-# FORK_BUILD=N sets the build number to <upstream version>.N, so SideStore sees each fork release as an update.
+# FORK_BUILD=N sets the version and build to <upstream version>.N (e.g. 3.8.11.4). SideStore compares
+# versions only, so each fork release needs its own version to show up as an update.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/fork/out"
@@ -32,6 +33,7 @@ if [ -n "${FORK_BUILD:-}" ]; then
   VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Info.plist")
   for plist in "$APP/Info.plist" "$APP"/PlugIns/*.appex/Info.plist; do
     /usr/libexec/PlistBuddy -c "Set CFBundleVersion $VER.$FORK_BUILD" "$plist"
+    /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $VER.$FORK_BUILD" "$plist"
   done
   echo "==> Build number $VER.$FORK_BUILD"
 fi
