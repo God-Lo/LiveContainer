@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.8",
+          "buildVersion": "3.8.11.8",
+          "date": "2026-11-07T19:54:09Z",
+          "localizedDescription": "Screen broadcast works for many apps at once, each shown as \"App - Broadcast\". Apps' share extensions are listed in LiveContainer's own share item under \"Share With\". Files: LiveContainer's own location in the Files app, with a folder for each app that has Files turned on.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.8/LiveContainer+SideStore.ipa",
+          "size": 23822118,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.7",
           "buildVersion": "3.8.11.7",
           "date": "2026-11-07T19:21:06Z",
