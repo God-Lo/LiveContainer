@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.19",
+          "buildVersion": "3.8.11.19",
+          "date": "2026-11-08T10:28:16Z",
+          "localizedDescription": "Fixes Control Center and Shortcuts actions of apps with Background Events on: actions and background events now share one running copy of the app.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.19/LiveContainer+SideStore.ipa",
+          "size": 23859683,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.18",
           "buildVersion": "3.8.11.18",
           "date": "2026-11-08T10:05:53Z",
