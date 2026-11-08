@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.18",
+          "buildVersion": "3.8.11.18",
+          "date": "2026-11-08T10:05:53Z",
+          "localizedDescription": "Background Events for every app: Bluetooth, accessory, location and background-task events reach each app with it on while LiveContainer is in the background. Tapping an app's widget opens that app.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.18/LiveContainer+SideStore.ipa",
+          "size": 23869048,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.17",
           "buildVersion": "3.8.11.17",
           "date": "2026-11-08T07:13:44Z",
