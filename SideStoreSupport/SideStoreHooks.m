@@ -106,18 +106,27 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
 }
 // fork: fetch this fork's source through GitHub's API, which serves the latest commit (the plain link can
 // keep serving an older copy for minutes), so SideStore sees a new release as soon as LiveContainer's own
-// update check does.
+// update check does. When the API turns the request down (60 an hour per network), the plain link is used.
+typedef void (^SideStoreDataCompletion)(NSData *, NSURLResponse *, NSError *);
 static NSURLSessionDataTask *(*SideStoreSession_orig_dataTask)(id self, SEL cmd, NSURLRequest *request, id completion);
 static NSURLSessionDataTask *SideStoreSession_hook_dataTask(id self, SEL cmd, NSURLRequest *request, id completion) {
     NSURL *source = SideStoreSource_hook_altStoreSourceURL(nil, nil);
-    if ([request.URL.host isEqualToString:source.host] && [request.URL.path isEqualToString:source.path]) {
-        NSMutableURLRequest *fresh = [request mutableCopy];
-        fresh.URL = [NSURL URLWithString:@"https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json"];
-        [fresh setValue:@"application/vnd.github.raw" forHTTPHeaderField:@"Accept"];
-        fresh.cachePolicy = NSURLRequestReloadIgnoringLocalAndRemoteCacheData;
-        request = fresh;
+    if (!completion || ![request.URL.host isEqualToString:source.host] || ![request.URL.path isEqualToString:source.path]) {
+        return SideStoreSession_orig_dataTask(self, cmd, request, completion);
     }
-    return SideStoreSession_orig_dataTask(self, cmd, request, completion);
+    NSMutableURLRequest *plain = [request mutableCopy];
+    plain.cachePolicy = NSURLRequestReloadIgnoringLocalAndRemoteCacheData;
+    NSMutableURLRequest *api = [plain mutableCopy];
+    api.URL = [NSURL URLWithString:@"https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json"];
+    [api setValue:@"application/vnd.github.raw" forHTTPHeaderField:@"Accept"];
+    SideStoreDataCompletion done = completion;
+    return SideStoreSession_orig_dataTask(self, cmd, api, ^(NSData *data, NSURLResponse *response, NSError *error) {
+        if ([(NSHTTPURLResponse *)response isKindOfClass:NSHTTPURLResponse.class] && ((NSHTTPURLResponse *)response).statusCode == 200) {
+            done(data, response, error);
+        } else {
+            [SideStoreSession_orig_dataTask(self, cmd, plain, done) resume];
+        }
+    });
 }
 
 // fork: LiveContainer's update prompt opens SideStore on My Apps, where the user taps Update.
