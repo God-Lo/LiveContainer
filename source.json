@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.14",
+          "buildVersion": "3.8.11.14",
+          "date": "2026-11-08T06:28:13Z",
+          "localizedDescription": "Files: locations start afresh after each reinstall, deleted apps' locations are removed, and each app's settings show what its location last did.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.14/LiveContainer+SideStore.ipa",
+          "size": 23825693,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.13",
           "buildVersion": "3.8.11.13",
           "date": "2026-11-08T05:38:23Z",
