@@ -14,8 +14,11 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   they share data. Any group ID works.
 - Calls that name your extension by its bundle ID are pointed at its copy: `SFContentBlockerManager`
   reload/state, `CXCallDirectoryManager` reload/status, and `RPSystemBroadcastPickerView.preferredExtension`.
-- Files: LiveContainer shows your app's Documents as its own location in the Files app. Your File Provider
-  extension isn't used, and domains your app adds are ignored (the request still succeeds).
+- Files: your app gets one location in the Files app, and your File Provider (replicated, iOS 16+) serves
+  it, loaded by LiveContainer's own File Provider. `init(domain:)` gets LiveContainer's domain for your
+  app; use it as given. Domains your app adds or removes are ignored (the request still succeeds).
+  Without a File Provider, the location shows your app's Documents. Needs LiveContainer's JIT-less
+  signing certificate, like share.
 - Frameworks in your app's `Frameworks/` that the extension links are copied next to it.
 
 ## Limits

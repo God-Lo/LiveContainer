@@ -137,7 +137,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
         NSDictionary *appexes = [self appexesInBundle:app[@"bundlePath"]];
         for (NSString *appex in [appexes.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
             NSString *point = pointOf(appexes[appex]);
-            if (!LCGuestExtensionIsBuiltIn(point) && [app[@"points"] containsObject:point]) [result addObject:@[app, appex, appexes[appex]]];
+            if ([app[@"points"] containsObject:point]) [result addObject:@[app, appex, appexes[appex]]];
         }
     }
     [result sortUsingComparator:^NSComparisonResult(NSArray *a, NSArray *b) {
@@ -152,7 +152,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     // app group then (LCSelfIPABuilder).
     BOOL files = [[apps valueForKeyPath:@"@unionOfArrays.points"] containsObject:kLCPointFileProvider];
     if (!selected.count && !files) return @"";
-    NSMutableString *text = [@"v4" mutableCopy];  // bump when copies are built differently, so installs rebuild
+    NSMutableString *text = [@"v5" mutableCopy];  // bump when copies are built differently, so installs rebuild
     if (files) [text appendString:@"|files"];
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];
@@ -320,7 +320,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     if (toSign.count) {
         // An extension of LiveContainer can only load code signed by the same team.
         if (!LCUtils.certificateData) {
-            if (error) *error = LCGEBError(@"Apps' share extensions need LiveContainer's signing certificate (JIT-less mode). Set it up in LiveContainer's settings.");
+            if (error) *error = LCGEBError(@"Apps' share extensions and File Providers need LiveContainer's signing certificate (JIT-less mode). Set it up in LiveContainer's settings.");
             return NO;
         }
         __block BOOL signedOK = NO;

@@ -53,20 +53,15 @@ static inline BOOL LCGuestExtensionIsSingleApp(NSString *point) {
     return [@[kLCPointMessages, kLCPointMessageFilter] containsObject:point];
 }
 
-/// Files isn't an app's own extension: LiveContainer's File Provider shows a folder per app with Files
-/// turned on (its Documents), so every app can use it and nothing is copied.
-static inline BOOL LCGuestExtensionIsBuiltIn(NSString *point) {
-    return [point isEqualToString:kLCPointFileProvider];
-}
-
-/// Kinds iOS shows only once per app even when there are several: an app's share extension. These are
-/// kept inside LiveContainer without registering them with iOS (LCGuestExtensions/*.lcext), and LiveContainer's
-/// own extension of that kind runs them: its share menu lists them under "Share With".
+/// Kinds iOS allows or shows only once per app even when there are several: share extensions and File
+/// Providers. These are kept inside LiveContainer without registering them with iOS
+/// (LCGuestExtensions/*.lcext), and LiveContainer's own extension of that kind runs them: its share menu
+/// lists them under "Share With", and its File Provider runs each app's in that app's location.
 static NSString *const kLCHostedExtensionsFolder = @"LCGuestExtensions";
 /// An app's hosted extension executable, converted to a library LiveContainer's extension can load.
 static NSString *const kLCHostedDylibName = @"LCExtension.dylib";
 static inline BOOL LCGuestExtensionIsHosted(NSString *point) {
-    return [point isEqualToString:kLCPointShare];
+    return [@[kLCPointShare, kLCPointFileProvider] containsObject:point];
 }
 
 /// Hosted extensions of this kind in the running LiveContainer: each is its Info.plist plus "path".

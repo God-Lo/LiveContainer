@@ -3,8 +3,9 @@
 //  LiveContainer (fork)
 //
 //  LiveContainer's locations in the Files app (fork/Extensions/AppsFileProvider): one per app with Files
-//  turned on ("LiveContainer – <App>"), showing its Documents. This keeps the list of those apps in the
-//  shared settings and registers exactly their locations, removing any other.
+//  turned on, served by the app's own File Provider when it has one and showing its Documents otherwise.
+//  This keeps the list of those apps in the shared settings and registers exactly their locations,
+//  removing any other.
 //
 
 import FileProvider

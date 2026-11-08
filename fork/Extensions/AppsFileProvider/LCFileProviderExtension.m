@@ -2,10 +2,14 @@
 //  LCFileProviderExtension.m
 //  LiveContainer (fork)
 //
-//  LiveContainer's locations in the Files app: one per app that has Files turned on in its settings
-//  ("LiveContainer – <App>"), showing that app's Documents folder. Files can be opened, added,
-//  renamed, moved and deleted. LiveContainer registers a domain per app ("lc.files.<app folder>") and
-//  keeps the list of apps in its shared settings (LCForkFiles).
+//  LiveContainer's locations in the Files app: one per app that has Files turned on in its settings.
+//  LiveContainer registers a domain per app ("lc.files.<app folder>") and keeps the list of apps in its
+//  shared settings (LCForkFiles).
+//
+//  An app with its own File Provider runs it in its location: iOS allows one File Provider per app, so
+//  the app's is kept inside LiveContainer (LCGuestExtensions) and loaded here, and it serves the location
+//  as it would natively. Other apps' locations show their Documents folder, where files can be opened,
+//  added, renamed, moved and deleted.
 //
 //  Item identifiers inside a location: the root container, and "f:<path>" for everything in it.
 //
@@ -13,6 +17,7 @@
 @import FileProvider;
 @import UniformTypeIdentifiers;
 #import "../../../LiveContainer/LCSharedUtils.h"
+#import "../../Sources/LiveContainerShared/LCGuestExtension.h"
 
 static NSString *const kAppsKey = @"LCFilesApps";  // [{ folder, name, isShared, dataUUID }]
 
@@ -160,6 +165,12 @@ static NSString *const kDomainPrefix = @"lc.files.";
 }
 
 - (void)enumerateItemsForObserver:(id<NSFileProviderEnumerationObserver>)observer startingAtPage:(NSFileProviderPage)page {
+    if (!self.store.documents) {
+        // Say so instead of looking empty.
+        [observer finishEnumeratingWithError:[NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadNoPermissionError userInfo:@{
+            NSLocalizedDescriptionKey: @"LiveContainer's Files can't reach this app's Documents. Open LiveContainer once, then try again."}]];
+        return;
+    }
     [observer didEnumerateItems:self.items];
     [observer finishEnumeratingUpToPage:nil];
 }
@@ -189,11 +200,35 @@ static NSString *const kDomainPrefix = @"lc.files.";
 }
 
 - (instancetype)initWithDomain:(NSFileProviderDomain *)domain {
+    NSString *identifier = domain.identifier;
+    NSString *folder = [identifier hasPrefix:kDomainPrefix] ? [identifier substringFromIndex:kDomainPrefix.length] : identifier;
+    [LCSharedUtils appGroupID];  // before an app's code changes this process's environment
+    id hosted = [LCFileProviderExtension appProviderFor:folder domain:domain];
+    if (hosted) return hosted;
     self = [super init];
     _store = [LCFPStore new];
-    NSString *identifier = domain.identifier;
-    _store.folder = [identifier hasPrefix:kDomainPrefix] ? [identifier substringFromIndex:kDomainPrefix.length] : identifier;
+    _store.folder = folder;
     return self;
+}
+
+/// The app's own File Provider for this location, when it has one; iOS then talks to it directly.
++ (nullable id)appProviderFor:(NSString *)folder domain:(NSFileProviderDomain *)domain {
+    for (NSDictionary *entry in LCHostedGuestExtensions(kLCPointFileProvider)) {
+        if (![entry[kLCGuestExtensionInfoKey][kLCGEFolder] isEqual:folder]) continue;
+        NSString *error = nil;
+        if (!LCLoadHostedGuestExtension(entry, &error)) {
+            // One app per process: another app's provider already runs here. Show this app's Documents.
+            NSLog(@"[LCFiles] %@: %@", folder, error);
+            return nil;
+        }
+        Class cls = NSClassFromString(entry[@"NSExtension"][@"NSExtensionPrincipalClass"] ?: @"");
+        if (![cls instancesRespondToSelector:@selector(initWithDomain:)]) {
+            NSLog(@"[LCFiles] %@: the app's File Provider has no class %@", folder, entry[@"NSExtension"][@"NSExtensionPrincipalClass"]);
+            return nil;
+        }
+        return [(id<NSFileProviderReplicatedExtension>)[cls alloc] initWithDomain:domain];
+    }
+    return nil;
 }
 
 - (void)invalidate {}
