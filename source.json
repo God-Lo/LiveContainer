@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.15",
+          "buildVersion": "3.8.11.15",
+          "date": "2026-11-08T06:42:59Z",
+          "localizedDescription": "Files: every app's File Provider runs in its location, also when iOS runs them in one process. Fixes files that couldn't be opened.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.15/LiveContainer+SideStore.ipa",
+          "size": 23825902,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.14",
           "buildVersion": "3.8.11.14",
           "date": "2026-11-08T06:28:13Z",
