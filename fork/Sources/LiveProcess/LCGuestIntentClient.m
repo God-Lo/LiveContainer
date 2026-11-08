@@ -92,14 +92,6 @@
     LCBackgroundEventsGuestDeliver(event);
 }
 
-- (void)accessorySession:(NSString *)session didReceive:(NSData *)data {
-    LCBackgroundEventsGuestAccessoryData(session, data);
-}
-
-- (void)accessorySessionDidClose:(NSString *)session {
-    dispatch_async(dispatch_get_main_queue(), ^{ LCBackgroundEventsGuestAccessoryClosed(session); });
-}
-
 @end
 
 static LCGuestIntentClient *sharedClient;
@@ -115,14 +107,10 @@ void LCGuestIntentClientSetup(NSDictionary *appInfo) {
     connection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(LCGuestIntentHost)];
     sharedClient.connection = connection;
     [connection activate];
-    // Started for background events: the app gets LiveContainer's events and accessories.
-    NSData *accessories = appInfo[kLCBackgroundAccessoriesKey];
-    if ([accessories isKindOfClass:NSData.class]) {
-        LCBackgroundEventsGuestConnect(^id<LCGuestIntentHost>(BOOL synchronous) {
-            void (^onError)(NSError *) = ^(NSError *error) { NSLog(@"[LCBE] guest: host unreachable: %@", error); };
-            return synchronous ? [connection synchronousRemoteObjectProxyWithErrorHandler:onError] : [connection remoteObjectProxyWithErrorHandler:onError];
-        }, accessories);
-    }
+    // Background events reach the app through the same connection.
+    LCBackgroundEventsGuestConnect(^id<LCGuestIntentHost> {
+        return [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { NSLog(@"[LCBE] guest: host unreachable: %@", error); }];
+    });
     [NSNotificationCenter.defaultCenter addObserver:sharedClient selector:@selector(appDidFinishLaunching:)
                                                name:@"UIApplicationDidFinishLaunchingNotification" object:nil];
 }

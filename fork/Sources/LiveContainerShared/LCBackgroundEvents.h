@@ -10,10 +10,10 @@
 //    connection-event filters, significant-location and region monitoring, background task IDs and
 //    requests. Kept per app in the app group (LiveContainer/BackgroundEvents/<folder>.plist).
 //  - Listening (LiveContainer's own process): the same registrations, made by LiveContainer, plus
-//    accessory connections for the apps' accessory protocols.
+//    accessories with the apps' accessory protocols connecting and disconnecting.
 //  - Delivering: each event goes to the apps that registered for it. The app runs in LiveProcess, as
-//    for Shortcuts actions, and LiveContainer calls its own delegates and task handlers there. Accessory
-//    sessions are opened by LiveContainer and relayed to the app's EASession streams.
+//    for Shortcuts actions (one LiveProcess per app, shared by both), and LiveContainer calls its own
+//    delegates and task handlers there. The app talks to accessories itself.
 //
 //  On rebuild, the apps' background modes, accessory protocols, background task IDs and missing
 //  permission texts are added to LiveContainer's Info.plist (LCGuestExtensionBuilder).
@@ -40,7 +40,5 @@ void LCBackgroundEventsHostStart(NSDictionary *launchOptions);
 
 @protocol LCGuestIntentHost;
 /// Called by the guest side of the connection (LCGuestIntentClient) once it's set up.
-void LCBackgroundEventsGuestConnect(id<LCGuestIntentHost> (^host)(BOOL synchronous), NSData *accessories);
+void LCBackgroundEventsGuestConnect(id<LCGuestIntentHost> (^host)(void));
 void LCBackgroundEventsGuestDeliver(NSData *event);
-void LCBackgroundEventsGuestAccessoryData(NSString *session, NSData *data);
-void LCBackgroundEventsGuestAccessoryClosed(NSString *session);

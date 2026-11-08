@@ -3,8 +3,7 @@
 //  LiveContainer (fork)
 //
 //  App side of Background Events (see LCBackgroundEvents.h): records what an app registers, and in
-//  LiveProcess calls the app's own delegates and task handlers with events LiveContainer received, and
-//  gives it stand-in accessories whose sessions LiveContainer relays.
+//  LiveProcess calls the app's own delegates and task handlers with events LiveContainer received.
 //
 //  System frameworks are reached at run time, so LiveContainerShared doesn't link them into every
 //  process that loads it.
@@ -216,159 +215,8 @@ static void installRecorders(void) {
     });
 }
 
-#pragma mark - Accessories (LiveProcess)
-
-static id<LCGuestIntentHost> (^hostProxy)(BOOL synchronous);
-static NSMutableArray<NSDictionary *> *accessoryInfos;  // as LiveContainer reported them
-static NSMutableDictionary<NSNumber *, id> *accessoryProxies;
-static Class proxyAccessoryClass, proxySessionClass;
+static id<LCGuestIntentHost> (^hostProxy)(void);
 static const void *kInfoKey = &kInfoKey;
-
-/// Runs a block when its owner goes away.
-@interface LCBEOnDealloc : NSObject
-@property (copy) dispatch_block_t block;
-@end
-@implementation LCBEOnDealloc
-- (void)dealloc { if (_block) _block(); }
-@end
-
-@interface LCBEAccessoryStream : NSObject
-@property NSOutputStream *feed;       // writes what the accessory sent into the app's input stream
-@property NSInputStream *drain;       // reads what the app wrote to its output stream
-@property dispatch_queue_t queue;
-@end
-@implementation LCBEAccessoryStream
-@end
-static NSMutableDictionary<NSString *, LCBEAccessoryStream *> *accessoryStreams;
-
-static id proxyForAccessory(NSDictionary *info) {
-    NSNumber *cid = info[@"connectionID"];
-    id proxy = accessoryProxies[cid];
-    if (!proxy) {
-        proxy = [proxyAccessoryClass alloc];
-        accessoryProxies[cid] = proxy;
-    }
-    objc_setAssociatedObject(proxy, kInfoKey, info, OBJC_ASSOCIATION_RETAIN);
-    return proxy;
-}
-
-static void makeAccessoryClasses(void) {
-    Class accessory = NSClassFromString(@"EAAccessory"), session = NSClassFromString(@"EASession");
-    if (!accessory || !session || proxyAccessoryClass) return;
-    proxyAccessoryClass = objc_allocateClassPair(accessory, "LCBEProxyAccessory", 0);
-    for (NSString *key in @[@"name", @"manufacturer", @"modelNumber", @"serialNumber", @"firmwareRevision", @"hardwareRevision", @"protocolStrings"]) {
-        class_addMethod(proxyAccessoryClass, NSSelectorFromString(key), imp_implementationWithBlock(^id(id self) {
-            return [objc_getAssociatedObject(self, kInfoKey) objectForKey:key];
-        }), "@@:");
-    }
-    class_addMethod(proxyAccessoryClass, @selector(connectionID), imp_implementationWithBlock(^NSUInteger(id self) {
-        return [[objc_getAssociatedObject(self, kInfoKey) objectForKey:@"connectionID"] unsignedIntegerValue];
-    }), "Q@:");
-    class_addMethod(proxyAccessoryClass, @selector(isConnected), imp_implementationWithBlock(^BOOL(id self) {
-        return [accessoryInfos containsObject:objc_getAssociatedObject(self, kInfoKey)];
-    }), "B@:");
-    objc_registerClassPair(proxyAccessoryClass);
-
-    proxySessionClass = objc_allocateClassPair(session, "LCBEProxySession", 0);
-    for (NSString *key in @[@"accessory", @"protocolString", @"inputStream", @"outputStream"]) {
-        class_addMethod(proxySessionClass, NSSelectorFromString(key), imp_implementationWithBlock(^id(id self) {
-            return [objc_getAssociatedObject(self, kInfoKey) objectForKey:key];
-        }), "@@:");
-    }
-    objc_registerClassPair(proxySessionClass);
-}
-
-/// A session with a stand-in accessory: LiveContainer opens the real session, and its streams are relayed
-/// to two in-memory stream pairs the app reads and writes.
-static id openProxySession(id accessory, NSString *protocol) {
-    __block NSString *sessionId = nil, *failure = nil;
-    NSUInteger cid = [[objc_getAssociatedObject(accessory, kInfoKey) objectForKey:@"connectionID"] unsignedIntegerValue];
-    [hostProxy(YES) openAccessory:cid protocol:protocol reply:^(NSString *session, NSString *error) {
-        sessionId = session;
-        failure = error;
-    }];
-    if (!sessionId) {
-        NSLog(@"[LCBE] accessory session for %@ failed: %@", protocol, failure);
-        return nil;
-    }
-    CFReadStreamRef appIn = NULL, drainIn = NULL;
-    CFWriteStreamRef feedOut = NULL, appOut = NULL;
-    CFStreamCreateBoundPair(NULL, &appIn, &feedOut, 64 * 1024);
-    CFStreamCreateBoundPair(NULL, &drainIn, &appOut, 64 * 1024);
-    LCBEAccessoryStream *relay = [LCBEAccessoryStream new];
-    relay.feed = (__bridge_transfer NSOutputStream *)feedOut;
-    relay.drain = (__bridge_transfer NSInputStream *)drainIn;
-    relay.queue = dispatch_queue_create("lc.background-events.accessory", DISPATCH_QUEUE_SERIAL);
-    [relay.feed open];
-    [relay.drain open];
-    accessoryStreams[sessionId] = relay;
-    // What the app writes goes to the accessory.
-    [NSThread detachNewThreadWithBlock:^{
-        uint8_t buffer[4096];
-        NSInteger count;
-        while ((count = [relay.drain read:buffer maxLength:sizeof(buffer)]) > 0) {
-            [hostProxy(NO) accessorySession:sessionId write:[NSData dataWithBytes:buffer length:count]];
-        }
-    }];
-
-    id proxy = [proxySessionClass alloc];
-    objc_setAssociatedObject(proxy, kInfoKey, @{@"accessory": accessory, @"protocolString": protocol,
-                                                @"inputStream": (__bridge_transfer NSInputStream *)appIn,
-                                                @"outputStream": (__bridge_transfer NSOutputStream *)appOut}, OBJC_ASSOCIATION_RETAIN);
-    LCBEOnDealloc *closer = [LCBEOnDealloc new];
-    closer.block = ^{
-        [hostProxy(NO) closeAccessorySession:sessionId];
-        LCBackgroundEventsGuestAccessoryClosed(sessionId);
-    };
-    objc_setAssociatedObject(proxy, kCloserKey, closer, OBJC_ASSOCIATION_RETAIN);
-    return proxy;
-}
-
-static void installAccessoryProxies(void) {
-    makeAccessoryClasses();
-    if (!proxyAccessoryClass) return;
-    accessoryProxies = [NSMutableDictionary new];
-    accessoryStreams = [NSMutableDictionary new];
-    replaceMethod(NSClassFromString(@"EAAccessoryManager"), @selector(connectedAccessories), NO, ^id(IMP orig) {
-        return ^NSArray *(id self) {
-            NSMutableArray *list = [NSMutableArray new];
-            for (NSDictionary *info in accessoryInfos) [list addObject:proxyForAccessory(info)];
-            return list;
-        };
-    });
-    SEL initSel = @selector(initWithAccessory:forProtocol:);
-    replaceMethod(NSClassFromString(@"EASession"), initSel, NO, ^id(IMP orig) {
-        return ^void *(__unsafe_unretained id self, id accessory, NSString *protocol) {
-            if (![accessory isKindOfClass:proxyAccessoryClass]) {
-                return ((void *(*)(id, SEL, id, NSString *))orig)(self, initSel, accessory, protocol);
-            }
-            CFRelease((__bridge CFTypeRef)self);  // an init consumes the object it was called on
-            id proxy = openProxySession(accessory, protocol);
-            return proxy ? (void *)CFBridgingRetain(proxy) : NULL;
-        };
-    });
-}
-
-void LCBackgroundEventsGuestAccessoryData(NSString *session, NSData *data) {
-    LCBEAccessoryStream *relay = accessoryStreams[session];
-    if (!relay) return;
-    dispatch_async(relay.queue, ^{
-        const uint8_t *bytes = data.bytes;
-        NSUInteger written = 0;
-        while (written < data.length) {
-            NSInteger count = [relay.feed write:bytes + written maxLength:data.length - written];
-            if (count <= 0) return;
-            written += count;
-        }
-    });
-}
-
-void LCBackgroundEventsGuestAccessoryClosed(NSString *session) {
-    LCBEAccessoryStream *relay = accessoryStreams[session];
-    if (!relay) return;
-    [accessoryStreams removeObjectForKey:session];
-    dispatch_async(relay.queue, ^{ [relay.feed close]; });
-}
 
 #pragma mark - Delivering events (LiveProcess)
 
@@ -405,7 +253,7 @@ static Class taskClass(BOOL processing) {
         NSString *token = [objc_getAssociatedObject(self, kInfoKey) objectForKey:@"token"];
         if (!token || !runningTasks[token]) return;
         [runningTasks removeObjectForKey:token];
-        [hostProxy(NO) backgroundTaskWithToken:token didFinish:success];
+        [hostProxy() backgroundTaskWithToken:token didFinish:success];
     }), "v@:B");
     objc_registerClassPair(cls);
     return cls;
@@ -451,7 +299,7 @@ void LCBackgroundEventsGuestDeliver(NSData *data) {
             NSArray *entry = taskHandlers[event[@"identifier"]];
             Class cls = taskClass([event[@"processing"] boolValue]);
             if (!entry || !cls) {
-                [hostProxy(NO) backgroundTaskWithToken:event[@"token"] didFinish:NO];
+                [hostProxy() backgroundTaskWithToken:event[@"token"] didFinish:NO];
                 return;
             }
             id task = [cls alloc];
@@ -465,25 +313,22 @@ void LCBackgroundEventsGuestDeliver(NSData *data) {
             id task = runningTasks[event[@"token"]];
             void (^expire)(void) = [task expirationHandler];
             if (expire) expire();
-        } else if ([type hasPrefix:@"accessory-"]) {
-            NSDictionary *info = event[@"accessory"];
-            BOOL connected = [type isEqualToString:@"accessory-connect"];
-            [accessoryInfos filterUsingPredicate:[NSPredicate predicateWithFormat:@"connectionID != %@", info[@"connectionID"]]];
-            if (connected) [accessoryInfos addObject:info];
-            id proxy = proxyForAccessory(info);
-            NSString *name = symbolString(connected ? "EAAccessoryDidConnectNotification" : "EAAccessoryDidDisconnectNotification");
-            NSString *key = symbolString("EAAccessoryKey");
-            if (name && key && proxy) [NSNotificationCenter.defaultCenter postNotificationName:name object:nil userInfo:@{key: proxy}];
+        } else if ([type isEqualToString:@"accessory-connect"]) {
+            // The app may have started after the accessory connected: tell it, as iOS would have.
+            dlopen("/System/Library/Frameworks/ExternalAccessory.framework/ExternalAccessory", RTLD_LAZY);
+            id manager = [NSClassFromString(@"EAAccessoryManager") performSelector:@selector(sharedAccessoryManager)];
+            NSString *name = symbolString("EAAccessoryDidConnectNotification"), *key = symbolString("EAAccessoryKey");
+            for (id accessory in [manager valueForKey:@"connectedAccessories"]) {
+                if ([[accessory valueForKey:@"connectionID"] isEqual:event[@"connectionID"]] && name && key) {
+                    [NSNotificationCenter.defaultCenter postNotificationName:name object:nil userInfo:@{key: accessory}];
+                }
+            }
         }
     });
 }
 
-void LCBackgroundEventsGuestConnect(id<LCGuestIntentHost> (^host)(BOOL synchronous), NSData *accessories) {
+void LCBackgroundEventsGuestConnect(id<LCGuestIntentHost> (^host)(void)) {
     hostProxy = host;
-    NSArray *list = accessories ? [NSPropertyListSerialization propertyListWithData:accessories options:0 format:nil error:nil] : nil;
-    accessoryInfos = [list isKindOfClass:NSArray.class] ? list.mutableCopy : [NSMutableArray new];
-    dlopen("/System/Library/Frameworks/ExternalAccessory.framework/ExternalAccessory", RTLD_LAZY);
-    installAccessoryProxies();
 }
 
 #pragma mark - Setup

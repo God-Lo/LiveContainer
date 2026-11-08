@@ -47,7 +47,7 @@ static NSString *lcHomePath(void) {
 @property NSString *bundleId;
 /// Set instead of bundleId when started for background events, which address apps by folder.
 @property NSString *folder;
-/// Background events in progress: an event's grace period, a task, an open accessory session.
+/// Background events in progress: an event's grace period, a running task.
 @property NSInteger holds;
 @property NSXPCListener *listener;
 @property NSXPCConnection *connection;
@@ -127,7 +127,6 @@ static NSString *lcHomePath(void) {
         kLCGuestIntentEndpointKey: self.listener.endpoint,
     } mutableCopy];
     if (dataUUID) userInfo[@"selectedContainer"] = dataUUID;
-    if (self.folder) userInfo[kLCBackgroundAccessoriesKey] = LCBEHostAccessoriesSnapshot();
     NSExtensionItem *item = [NSExtensionItem new];
     item.userInfo = userInfo;
 
@@ -256,32 +255,8 @@ static NSString *lcHomePath(void) {
     if (self.ready && self.connection) send(); else [self.pending addObject:send];
 }
 
-- (void)sendAccessoryData:(NSData *)data session:(NSString *)session {
-    [[self.connection remoteObjectProxy] accessorySession:session didReceive:data];
-}
-
-- (void)sendAccessoryClosed:(NSString *)session {
-    [[self.connection remoteObjectProxy] accessorySessionDidClose:session];
-}
-
 - (void)backgroundTaskWithToken:(NSString *)token didFinish:(BOOL)success {
     dispatch_async(dispatch_get_main_queue(), ^{ LCBEHostTaskFinished(token, success); });
-}
-
-- (void)openAccessory:(NSUInteger)connectionID protocol:(NSString *)protocol reply:(void (^)(NSString *, NSString *))reply {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *error = nil;
-        NSString *session = LCBEHostOpenAccessory(connectionID, protocol, self, &error);
-        reply(session, error);
-    });
-}
-
-- (void)accessorySession:(NSString *)session write:(NSData *)data {
-    dispatch_async(dispatch_get_main_queue(), ^{ LCBEHostAccessoryWrite(session, data); });
-}
-
-- (void)closeAccessorySession:(NSString *)session {
-    dispatch_async(dispatch_get_main_queue(), ^{ LCBEHostAccessoryClose(session); });
 }
 
 - (void)failAll:(NSString *)message {
@@ -310,7 +285,7 @@ static NSMutableDictionary<NSString *, LCGuestIntentSession *> *sessions;
 /// Starts the app (by folder) in LiveProcess if needed and delivers a background event to it.
 id<LCBEHostSession> LCBEHostDeliver(NSString *folder, NSDictionary *event) {
     if (!sessions) sessions = [NSMutableDictionary dictionary];
-    NSString *key = [@"folder:" stringByAppendingString:folder];
+    NSString *key = folder;
     LCGuestIntentSession *session = sessions[key];
     if (!session || session.dead) {
         session = [[LCGuestIntentSession alloc] initWithBundleId:folder];
@@ -352,15 +327,19 @@ static BOOL forwardIfGuestAction(id action, LCGIPerformCompletion completion) {
     }
     dispatch_async(dispatch_get_main_queue(), ^{
         NSString *bundleId = entry[@"bundleId"];
-        LCGuestIntentSession *session = sessions[bundleId];
+        // One LiveProcess per app, shared with background events, so the app's connections (an
+        // accessory session, say) are there for its actions too.
+        NSString *folder = [LCGuestIntentSession folderForBundleId:bundleId] ?: bundleId;
+        LCGuestIntentSession *session = sessions[folder];
         if (!session || session.dead) {
             session = [[LCGuestIntentSession alloc] initWithBundleId:bundleId];
+            session.folder = [LCGuestIntentSession folderForBundleId:bundleId];
             NSError *error = [session start];
             if (error) {
                 completion(nil, error);
                 return;
             }
-            sessions[bundleId] = session;
+            sessions[folder] = session;
         }
         [session perform:archived identifier:entry[@"identifier"] completion:completion];
     });

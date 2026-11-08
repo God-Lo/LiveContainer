@@ -20,10 +20,6 @@ static NSString *const kLCGuestIntentEndpointKey = @"lcGuestIntentEndpoint";
 // Background events (LCBackgroundEvents.h)
 /// The app finished the background task LiveContainer handed it.
 - (void)backgroundTaskWithToken:(NSString *)token didFinish:(BOOL)success;
-/// The app opens a session with an accessory LiveContainer reported; LiveContainer opens the real one.
-- (void)openAccessory:(NSUInteger)connectionID protocol:(NSString *)protocol reply:(void (^)(NSString *session, NSString *error))reply;
-- (void)accessorySession:(NSString *)session write:(NSData *)data;
-- (void)closeAccessorySession:(NSString *)session;
 @end
 
 /// Implemented by the guest process, called by LiveContainer.
@@ -35,12 +31,8 @@ static NSString *const kLCGuestIntentEndpointKey = @"lcGuestIntentEndpoint";
 // Background events (LCBackgroundEvents.h)
 /// `event` is a property list: { type, ... }, see LCBackgroundEvents.m.
 - (void)deliverBackgroundEvent:(NSData *)event;
-- (void)accessorySession:(NSString *)session didReceive:(NSData *)data;
-- (void)accessorySessionDidClose:(NSString *)session;
 @end
 
-/// Extension request userInfo key: the accessories connected when the guest starts (property list data).
-static NSString *const kLCBackgroundAccessoriesKey = @"lcBackgroundAccessories";
 
 #ifdef __cplusplus
 extern "C"

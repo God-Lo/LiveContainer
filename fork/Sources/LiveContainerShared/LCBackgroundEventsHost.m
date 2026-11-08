@@ -4,7 +4,7 @@
 //
 //  LiveContainer side of Background Events (see LCBackgroundEvents.h): makes the apps' registrations
 //  under LiveContainer's own name, receives the events iOS sends LiveContainer, and delivers each to the
-//  apps that registered for it. Opens accessory sessions on the apps' behalf and relays their streams.
+//  apps that registered for it.
 //
 
 #import "LCBackgroundEvents.h"
@@ -34,12 +34,8 @@
 - (void)startMonitoringForRegion:(id)region;
 - (NSSet *)monitoredRegions;
 - (void)registerForLocalNotifications;
-- (NSArray *)connectedAccessories;
 - (NSUInteger)connectionID;
 - (NSArray<NSString *> *)protocolStrings;
-- (id)initWithAccessory:(id)accessory forProtocol:(NSString *)protocol;
-- (NSInputStream *)inputStream;
-- (NSOutputStream *)outputStream;
 @end
 
 static NSString *symbolString(const char *name) {
@@ -53,25 +49,7 @@ static NSDictionary *registryOf(NSString *folder) {
     return [registry isKindOfClass:NSDictionary.class] ? registry : @{};
 }
 
-static NSDictionary *accessoryInfo(id accessory) {
-    NSMutableDictionary *info = [@{@"connectionID": @([accessory connectionID])} mutableCopy];
-    for (NSString *key in @[@"name", @"manufacturer", @"modelNumber", @"serialNumber", @"firmwareRevision", @"hardwareRevision", @"protocolStrings"]) {
-        id value = [accessory valueForKey:key];
-        if (value) info[key] = value;
-    }
-    return info;
-}
-
-@interface LCBEHostRelay : NSObject <NSStreamDelegate>
-@property id session;                       // EASession
-@property id<LCBEHostSession> owner;
-@property NSString *identifier;
-@property NSMutableData *outgoing;
-@end
-@implementation LCBEHostRelay
-@end
-
-@interface LCBEHost : NSObject <NSStreamDelegate>
+@interface LCBEHost : NSObject
 @property NSArray<NSString *> *apps;
 @property NSMutableDictionary<NSString *, NSArray<NSString *> *> *accessoryProtocols;  // folder -> protocols
 @property NSMutableArray *centralManagers;
@@ -79,7 +57,6 @@ static NSDictionary *accessoryInfo(id accessory) {
 @property id locationManager;
 @property NSMutableDictionary<NSString *, NSString *> *regionOwner;                   // region identifier -> folder
 @property NSMutableDictionary<NSString *, NSArray *> *tasks;                          // token -> [BGTask, owner]
-@property NSMutableDictionary<NSString *, LCBEHostRelay *> *relays;
 @end
 
 static LCBEHost *host;
@@ -268,57 +245,17 @@ static LCBEHost *host;
         [NSNotificationCenter.defaultCenter addObserverForName:symbolString(name.UTF8String) object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
             id accessory = key ? note.userInfo[key] : nil;
             if (!accessory) return;
-            NSDictionary *info = accessoryInfo(accessory);
             for (NSString *folder in self.accessoryProtocols) {
                 if (![[NSSet setWithArray:self.accessoryProtocols[folder]] intersectsSet:[NSSet setWithArray:[accessory protocolStrings]]]) continue;
-                [self deliver:@{@"type": connected ? @"accessory-connect" : @"accessory-disconnect", @"accessory": info} to:folder];
+                [self deliver:@{@"type": connected ? @"accessory-connect" : @"accessory-disconnect", @"connectionID": @([accessory connectionID])} to:folder];
             }
         }];
-    }
-}
-
-- (void)stream:(NSStream *)stream handleEvent:(NSStreamEvent)eventCode {
-    LCBEHostRelay *relay = nil;
-    for (LCBEHostRelay *r in self.relays.allValues) {
-        if ([r.session inputStream] == stream || [r.session outputStream] == stream) { relay = r; break; }
-    }
-    if (!relay) return;
-    if (eventCode & NSStreamEventHasBytesAvailable) {
-        uint8_t buffer[4096];
-        NSInputStream *input = (NSInputStream *)stream;
-        while (input.hasBytesAvailable) {
-            NSInteger count = [input read:buffer maxLength:sizeof(buffer)];
-            if (count <= 0) break;
-            [relay.owner sendAccessoryData:[NSData dataWithBytes:buffer length:count] session:relay.identifier];
-        }
-    }
-    if (eventCode & NSStreamEventHasSpaceAvailable) [self flush:relay];
-    if (eventCode & (NSStreamEventEndEncountered | NSStreamEventErrorOccurred)) {
-        [relay.owner sendAccessoryClosed:relay.identifier];
-        LCBEHostAccessoryClose(relay.identifier);
-    }
-}
-
-- (void)flush:(LCBEHostRelay *)relay {
-    NSOutputStream *output = [relay.session outputStream];
-    while (relay.outgoing.length && output.hasSpaceAvailable) {
-        NSInteger count = [output write:relay.outgoing.bytes maxLength:relay.outgoing.length];
-        if (count <= 0) break;
-        [relay.outgoing replaceBytesInRange:NSMakeRange(0, count) withBytes:NULL length:0];
     }
 }
 
 @end
 
 #pragma mark - Calls from the sessions
-
-NSData *LCBEHostAccessoriesSnapshot(void) {
-    NSMutableArray *list = [NSMutableArray new];
-    if (host.accessoryProtocols.count) {
-        for (id accessory in [[NSClassFromString(@"EAAccessoryManager") sharedAccessoryManager] connectedAccessories]) [list addObject:accessoryInfo(accessory)];
-    }
-    return [NSPropertyListSerialization dataWithPropertyList:list format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
-}
 
 void LCBEHostTaskFinished(NSString *token, BOOL success) {
     NSArray *entry = host.tasks[token];
@@ -328,52 +265,7 @@ void LCBEHostTaskFinished(NSString *token, BOOL success) {
     [(id<LCBEHostSession>)entry[1] releaseHold];
 }
 
-NSString *LCBEHostOpenAccessory(NSUInteger connectionID, NSString *protocol, id<LCBEHostSession> owner, NSString **error) {
-    id accessory = nil;
-    for (id candidate in [[NSClassFromString(@"EAAccessoryManager") sharedAccessoryManager] connectedAccessories]) {
-        if ([candidate connectionID] == connectionID) accessory = candidate;
-    }
-    if (!accessory) { *error = @"The accessory isn't connected."; return nil; }
-    id session = [[NSClassFromString(@"EASession") alloc] initWithAccessory:accessory forProtocol:protocol];
-    if (!session) { *error = [NSString stringWithFormat:@"Couldn't open %@. Its protocol needs to be in LiveContainer (Apply Changes reinstalls it).", protocol]; return nil; }
-    LCBEHostRelay *relay = [LCBEHostRelay new];
-    relay.session = session;
-    relay.owner = owner;
-    relay.identifier = NSUUID.UUID.UUIDString;
-    relay.outgoing = [NSMutableData new];
-    host.relays[relay.identifier] = relay;
-    [owner hold];
-    for (NSStream *stream in @[[session inputStream], [session outputStream]]) {
-        stream.delegate = host;
-        [stream scheduleInRunLoop:NSRunLoop.mainRunLoop forMode:NSDefaultRunLoopMode];
-        [stream open];
-    }
-    return relay.identifier;
-}
-
-void LCBEHostAccessoryWrite(NSString *session, NSData *data) {
-    LCBEHostRelay *relay = host.relays[session];
-    if (!relay) return;
-    [relay.outgoing appendData:data];
-    [host flush:relay];
-}
-
-void LCBEHostAccessoryClose(NSString *session) {
-    LCBEHostRelay *relay = host.relays[session];
-    if (!relay) return;
-    [host.relays removeObjectForKey:session];
-    for (NSStream *stream in @[[relay.session inputStream], [relay.session outputStream]]) {
-        stream.delegate = nil;
-        [stream close];
-        [stream removeFromRunLoop:NSRunLoop.mainRunLoop forMode:NSDefaultRunLoopMode];
-    }
-    [relay.owner releaseHold];
-}
-
 void LCBEHostSessionEnded(id<LCBEHostSession> owner) {
-    for (LCBEHostRelay *relay in host.relays.allValues) {
-        if (relay.owner == owner) LCBEHostAccessoryClose(relay.identifier);
-    }
     for (NSString *token in host.tasks.allKeys) {
         if (host.tasks[token][1] == owner) LCBEHostTaskFinished(token, NO);
     }
@@ -393,7 +285,6 @@ void LCBackgroundEventsHostStart(NSDictionary *launchOptions) {
     host.managerOwner = [NSMapTable strongToStrongObjectsMapTable];
     host.regionOwner = [NSMutableDictionary new];
     host.tasks = [NSMutableDictionary new];
-    host.relays = [NSMutableDictionary new];
     NSLog(@"[LCBE] host: listening for %@ (launch options %@)", apps, launchOptions.allKeys);
     [host startTasks];
     [host startBluetooth];

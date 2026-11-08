@@ -45,8 +45,10 @@ background (LiveProcess). Use the standard APIs as usual:
 - Bluetooth: your `CBCentralManager` restore IDs and `registerForConnectionEvents` filters are made by
   LiveContainer; your delegate gets `centralManager(_:willRestoreState:)` and
   `centralManager(_:connectionEventDidOccur:for:)`.
-- Accessories: `EAAccessoryManager.connectedAccessories` and the connect/disconnect notifications work,
-  and `EASession` streams are relayed to the real accessory by LiveContainer.
+- Accessories: when an accessory with one of your protocols connects or disconnects, your app is
+  started and gets the connect notification; it opens its `EASession` as usual. Actions (Shortcuts,
+  Control Center) and background events share one running copy of your app, so its session is there
+  for both.
 - Location: significant-change and region monitoring; your delegate gets the updates.
 - Background tasks: your `BGTaskScheduler` handlers run with the task; `setTaskCompleted` and
   `expirationHandler` work.
