@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.20",
+          "buildVersion": "3.8.11.20",
+          "date": "2026-11-08T10:53:02Z",
+          "localizedDescription": "Removes Background Events: iOS doesn't wake a swiped-away app for Bluetooth, so it only helped while LiveContainer was in the background. Tapping an app's widget still opens that app.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.20/LiveContainer+SideStore.ipa",
+          "size": 23832560,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.19",
           "buildVersion": "3.8.11.19",
           "date": "2026-11-08T10:28:16Z",
