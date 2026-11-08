@@ -46,6 +46,10 @@ reinstalls it. The apps need no changes, and no extra App IDs are used. Names fo
   File Provider run it there; other apps show their Documents. Works for every app.
 - Kinds for one app at a time (**iMessage, SMS Filter**) show as **LiveContainer**.
   Pick the app in its settings or in LiveContainer's **Settings → App Extensions**.
+- **Background Events** (one app at a time): when iOS wakes LiveContainer in the background for
+  Bluetooth, accessories, location or background tasks, LiveContainer starts the picked app without
+  showing it, so the app gets the event as it would on its own. Opening LiveContainer then shows
+  LiveContainer as usual.
 - Every switch is off by default. Grayed out: the app doesn't have that kind. Tap **Apply Changes**
   when done; LiveContainer reinstalls once.
 - Turning a switch off or deleting the app removes its extension at the next rebuild.

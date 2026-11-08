@@ -10,6 +10,7 @@
 #import "../../../LiveContainer/LCSharedUtils.h"
 #import "../../../LiveContainerSwiftUI/Utilities/LCUtils.h"
 #import "../LiveContainerShared/LCGuestExtension.h"
+#import "../LiveContainerShared/LCBackgroundEvents.h"
 
 static NSString *const kStateFile = @"LCGuestExtensionsState.plist";
 static const char *kRuntimePath = "@executable_path/../../Frameworks/LiveContainerShared.framework/LiveContainerShared";
@@ -106,7 +107,72 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     return deps;
 }
 
+/// What an app declares for background events: its background modes, accessory protocols, background
+/// task IDs and permission texts. Empty when it declares none of the first three.
+static NSDictionary *backgroundInfo(NSString *bundlePath) {
+    NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[bundlePath stringByAppendingPathComponent:@"Info.plist"]];
+    NSMutableDictionary *found = [NSMutableDictionary new];
+    for (NSString *key in LCBackgroundEventsListKeys()) {
+        if ([info[key] isKindOfClass:NSArray.class] && [info[key] count]) found[key] = info[key];
+    }
+    if (!found.count) return found;
+    for (NSString *key in info) {
+        if ([key hasSuffix:@"UsageDescription"] && [info[key] isKindOfClass:NSString.class]) found[key] = info[key];
+    }
+    return found;
+}
+
+/// The app picked for background events, among the apps the rebuild includes.
+static NSDictionary *backgroundApp(NSArray<NSDictionary *> *apps) {
+    for (NSDictionary *app in apps) if ([app[@"points"] containsObject:kLCPointBackgroundEvents]) return app;
+    return nil;
+}
+
+/// Info.plist key holding what the merge changed: key -> LiveContainer's own value, or kAbsent.
+static NSString *const kMergedOriginals = @"LCForkBackgroundOriginals";
+static NSString *const kAbsent = @"(absent)";
+
 @implementation LCGuestExtensionBuilder
+
+/// Puts LiveContainer's own Info.plist values back, then adds the background-events app's: its
+/// background modes, accessory protocols and background task IDs, and permission texts LiveContainer
+/// lacks. iOS reads these from LiveContainer's Info.plist only.
++ (BOOL)mergeBackgroundInfoOfApps:(NSArray<NSDictionary *> *)apps intoApp:(NSURL *)app error:(NSError **)error {
+    NSString *path = [app.path stringByAppendingPathComponent:@"Info.plist"];
+    NSMutableDictionary *info = [[NSDictionary dictionaryWithContentsOfFile:path] mutableCopy];
+    if (!info) {
+        if (error) *error = LCGEBError(@"Couldn't read LiveContainer's Info.plist.");
+        return NO;
+    }
+    NSDictionary *originals = info[kMergedOriginals];
+    for (NSString *key in originals) {
+        if ([originals[key] isEqual:kAbsent]) [info removeObjectForKey:key];
+        else info[key] = originals[key];
+    }
+    [info removeObjectForKey:kMergedOriginals];
+
+    NSDictionary *background = backgroundApp(apps);
+    NSDictionary *guest = background ? backgroundInfo(background[@"bundlePath"]) : nil;
+    NSMutableDictionary *changed = [NSMutableDictionary new];
+    for (NSString *key in guest) {
+        if ([LCBackgroundEventsListKeys() containsObject:key]) {
+            NSMutableArray *merged = [info[key] isKindOfClass:NSArray.class] ? [info[key] mutableCopy] : [NSMutableArray new];
+            for (id value in guest[key]) if (![merged containsObject:value]) [merged addObject:value];
+            if ([merged isEqual:info[key]]) continue;
+            changed[key] = info[key] ?: kAbsent;
+            info[key] = merged;
+        } else if (!info[key]) {
+            changed[key] = kAbsent;
+            info[key] = guest[key];
+        }
+    }
+    if (changed.count) info[kMergedOriginals] = changed;
+    if (![info writeToFile:path atomically:YES]) {
+        if (error) *error = LCGEBError(@"Couldn't write LiveContainer's Info.plist.");
+        return NO;
+    }
+    return YES;
+}
 
 + (NSArray<NSString *> *)allPoints { return LCGuestExtensionPoints(); }
 + (NSString *)displayNameForPoint:(NSString *)point { return LCGuestExtensionKindName(point); }
@@ -127,6 +193,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
 + (NSArray<NSString *> *)supportedPointsInBundle:(NSString *)bundlePath {
     NSMutableSet *points = [NSMutableSet new];
     for (NSDictionary *info in [self appexesInBundle:bundlePath].allValues) [points addObject:pointOf(info)];
+    if (backgroundInfo(bundlePath).count) [points addObject:kLCPointBackgroundEvents];
     return [LCGuestExtensionPoints() filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF IN %@", points]];
 }
 
@@ -151,9 +218,14 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     // Files needs one rebuild too: the File Provider's document group is set to LiveContainer's real
     // app group then (LCSelfIPABuilder).
     BOOL files = [[apps valueForKeyPath:@"@unionOfArrays.points"] containsObject:kLCPointFileProvider];
-    if (!selected.count && !files) return @"";
+    NSDictionary *background = backgroundApp(apps);
+    if (!selected.count && !files && !background) return @"";
     NSMutableString *text = [@"v5" mutableCopy];  // bump when copies are built differently, so installs rebuild
     if (files) [text appendString:@"|files"];
+    if (background) {
+        NSData *keys = [NSPropertyListSerialization dataWithPropertyList:backgroundInfo(background[@"bundlePath"]) format:NSPropertyListXMLFormat_v1_0 options:0 error:nil];
+        [text appendFormat:@"|background|%@|%@", background[@"folder"], sha256Hex(keys ?: NSData.data)];
+    }
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];
         NSString *exec = [app[@"bundlePath"] stringByAppendingFormat:@"/PlugIns/%@/%@", s[1], s[2][@"CFBundleExecutable"]];
@@ -208,6 +280,7 @@ static NSSet<NSString *> *rpathDependencies(NSString *path) {
     }
     NSString *hosted = [app.path stringByAppendingPathComponent:kLCHostedExtensionsFolder];
     [fm removeItemAtPath:hosted error:nil];
+    if (![self mergeBackgroundInfoOfApps:apps intoApp:app error:error]) return NO;
     NSDictionary *lcInfo = [NSDictionary dictionaryWithContentsOfFile:[app.path stringByAppendingPathComponent:@"Info.plist"]];
     NSString *lcBundleId = NSBundle.mainBundle.bundleIdentifier;  // the rebuild fixes the prefix afterwards
     NSSet *singleDone = [NSMutableSet new];

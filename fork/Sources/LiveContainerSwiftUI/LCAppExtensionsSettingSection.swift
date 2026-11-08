@@ -81,7 +81,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage and SMS Filter work for one app at a time." + filesStatus
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage, SMS Filter and Background Events work for one app at a time." + filesStatus
                  : "Change these in the main LiveContainer.")
         }
     }
@@ -90,6 +90,11 @@ struct LCAppExtensionsSettingSection: View {
 /// In LiveContainer's Settings: which app uses each kind that works for one app at a time.
 struct LCSingleAppExtensionsSection: View {
     @State private var refresh = 0
+
+    private var lastBackgroundStart: String {
+        guard let date = LCForkBackground.lastStart else { return "" }
+        return "\n\nLast started in the background: " + date.formatted(date: .abbreviated, time: .shortened) + "."
+    }
 
     private var apps: [LCAppInfo] {
         let model = DataManager.shared.model
@@ -126,7 +131,7 @@ struct LCSingleAppExtensionsSection: View {
             } header: {
                 Text("App Extensions")
             } footer: {
-                Text("iOS allows one app at a time for these. Grayed out: none of your apps has it.")
+                Text("iOS allows one app at a time for these. Grayed out: none of your apps has it. Background Events: iOS wakes LiveContainer for Bluetooth, accessories, location and background tasks, and LiveContainer starts this app without showing it, so the app updates its widgets and controls as it would on its own." + lastBackgroundStart)
             }
         }
     }

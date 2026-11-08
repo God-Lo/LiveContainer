@@ -1,6 +1,7 @@
 #import "FoundationPrivate.h"
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
+#import "../fork/Sources/LiveContainerShared/LCBackgroundEvents.h" // fork
 #import "UIKitPrivate.h"
 #import "utils.h"
 
@@ -697,6 +698,7 @@ int LiveContainerMain(int argc, char *argv[]) {
         if (selectedContainer) [lcSharedDefaults removeObjectForKey:@"LCLaunchExtensionContainerName"];
         if (launchUrl) [lcSharedDefaults removeObjectForKey:@"LCLaunchExtensionLaunchURL"];
     } while (0);
+    if(!isLiveProcess) selectedApp = LCForkBackgroundLaunchApp(selectedApp, lcAppUrlScheme); // fork
     
     NSString* lastLaunchDataUUID;
     if(!isLiveProcess) {

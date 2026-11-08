@@ -35,6 +35,19 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   own, and only app groups are shared.
 - Changes take a LiveContainer reinstall: turning a kind on or off, and updating your app.
 
+## Background events
+
+With your app picked under **Background Events**, LiveContainer's Info.plist gets your
+`UIBackgroundModes`, `UISupportedExternalAccessoryProtocols`, `BGTaskSchedulerPermittedIdentifiers` and
+any permission texts it lacks. When iOS starts LiveContainer in the background (Bluetooth state
+restoration or connection events, accessories, location, background tasks), your app starts instead of
+LiveContainer's screen, with iOS's launch options. Use the standard APIs as usual: restore IDs, delegates
+and task handlers work as they would natively.
+
+- One app at a time: iOS wakes LiveContainer's own process, which runs one app.
+- Push notifications and VoIP pushes don't work: they need entitlements LiveContainer doesn't have.
+- Events arrive only while LiveContainer isn't running another app, or is running yours.
+
 ## Debugging
 
 The device log has `[LCGuestExtension]` lines from your extension's process.
