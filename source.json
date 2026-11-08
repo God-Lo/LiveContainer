@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.16",
+          "buildVersion": "3.8.11.16",
+          "date": "2026-11-08T07:03:50Z",
+          "localizedDescription": "Stable release. Apps' Shortcuts actions, widgets, Live Activities, share, actions, keyboards, Safari content blockers, photo editing, iMessage, call blocking, screen broadcast and Files work inside LiveContainer.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.16/LiveContainer+SideStore.ipa",
+          "size": 23825803,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.15",
           "buildVersion": "3.8.11.15",
           "date": "2026-11-08T06:42:59Z",
