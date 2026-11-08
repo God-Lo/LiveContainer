@@ -73,6 +73,10 @@ echo "==> Packaging with upstream's .github/build_github.sh"
 ln -s "$ROOT/.github" "$WORK/.github"
 ( cd "$WORK" && scheme=LiveContainer archive_path=archive sh .github/build_github.sh > "$OUT/package.log" 2>&1 ) \
   || { tail -30 "$OUT/package.log"; exit 1; }
+# Upstream's script keeps going when a download fails; a release without the built-in SideStore can't
+# update itself.
+unzip -l "$WORK/LiveContainer+SideStore.ipa" | grep -q "Frameworks/SideStoreApp.framework/SideStore$" \
+  || { tail -30 "$OUT/package.log"; echo "The built-in SideStore is missing (its download failed). Try again later."; exit 1; }
 
 cp "$WORK/LiveContainer+SideStore.ipa" "$WORK/LiveContainer.ipa" "$OUT/"
 # Leave only the IPAs behind (logs are kept only when a step fails).
