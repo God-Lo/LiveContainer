@@ -107,16 +107,32 @@ BOOL LCLoadHostedGuestExtension(NSDictionary *entry, NSString **error) {
         if (error) *error = @"Another app's extension already ran here. Share again to use this one.";
         return NO;
     }
-    setUpGuestExtension(entry[kLCGuestExtensionInfoKey]);
-    NSString *dylib = [path stringByAppendingPathComponent:kLCHostedDylibName];
+    if (!LCLoadHostedGuestExtensionCode(entry, error)) return NO;
+    loaded = path;
+    return YES;
+}
+
+BOOL LCLoadHostedGuestExtensionCode(NSDictionary *entry, NSString **error) {
+    static NSMutableSet<NSString *> *loadedIds;
+    static BOOL environmentSet;
+    if (!loadedIds) loadedIds = [NSMutableSet new];
+    // The same app's extension (another copy of the app) is already loaded: its classes are there.
+    NSString *appexId = entry[kLCGuestExtensionInfoKey][kLCGEAppexBundleId] ?: entry[@"path"];
+    if ([loadedIds containsObject:appexId]) return YES;
+    // The first app gets this process's environment (home folder, settings, Bundle.main).
+    if (!environmentSet) setUpGuestExtension(entry[kLCGuestExtensionInfoKey]);
+    NSString *dylib = [entry[@"path"] stringByAppendingPathComponent:kLCHostedDylibName];
     if (!dlopen(dylib.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) {
         if (error) *error = [NSString stringWithFormat:@"Couldn't load the app's extension: %s", dlerror()];
         return NO;
     }
-    // The extension finds its storyboards and resources through Bundle.main.
-    NSBundle *bundle = [NSBundle bundleWithPath:path];
-    if (bundle) overwriteMainNSBundle(bundle);
-    loaded = path;
+    if (!environmentSet) {
+        // The extension finds its storyboards and resources through Bundle.main.
+        NSBundle *bundle = [NSBundle bundleWithPath:entry[@"path"]];
+        if (bundle) overwriteMainNSBundle(bundle);
+        environmentSet = YES;
+    }
+    [loadedIds addObject:appexId];
     return YES;
 }
 

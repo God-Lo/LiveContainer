@@ -235,8 +235,7 @@ static NSString *const kDomainPrefix = @"lc.files.";
     for (NSDictionary *entry in LCHostedGuestExtensions(kLCPointFileProvider)) {
         if (![entry[kLCGuestExtensionInfoKey][kLCGEFolder] isEqual:folder]) continue;
         NSString *error = nil;
-        if (!LCLoadHostedGuestExtension(entry, &error)) {
-            // One app per process: another app's provider already runs here. Show this app's Documents.
+        if (!LCLoadHostedGuestExtensionCode(entry, &error)) {
             LCFPSetStatus(folder, [NSString stringWithFormat:@"Couldn't run the app's File Provider, showing its Documents: %@", error]);
             return nil;
         }

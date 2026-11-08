@@ -18,7 +18,8 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   it, loaded by LiveContainer's own File Provider. `init(domain:)` gets LiveContainer's domain for your
   app; use it as given. Domains your app adds or removes are ignored (the request still succeeds).
   Without a File Provider, the location shows your app's Documents. Needs LiveContainer's JIT-less
-  signing certificate, like share.
+  signing certificate, like share. iOS may run several apps' File Providers in one process; then only
+  the first app gets its own home folder and settings, so keep the provider's data in an app group.
 - Frameworks in your app's `Frameworks/` that the extension links are copied next to it.
 
 ## Limits

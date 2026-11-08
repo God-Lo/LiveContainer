@@ -69,3 +69,8 @@ NSArray<NSDictionary *> *LCHostedGuestExtensions(NSString *point);
 /// Sets up the app's environment in this process and loads the hosted extension's code; afterwards
 /// Bundle.main is the extension's bundle. One app per process. Returns NO with a reason on failure.
 BOOL LCLoadHostedGuestExtension(NSDictionary *entry, NSString *_Nullable *_Nullable error);
+/// For extensions that serve several apps in one process (File Providers): loads the extension's code
+/// even when another app's already runs here. The first app sets up the environment; later ones share
+/// it, so they reach their app groups but not their own home folder or settings. Code already loaded
+/// for the same extension (another copy of the app) is reused.
+BOOL LCLoadHostedGuestExtensionCode(NSDictionary *entry, NSString *_Nullable *_Nullable error);
