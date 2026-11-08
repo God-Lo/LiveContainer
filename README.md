@@ -38,7 +38,7 @@ the app's own extensions to itself, the same way it adds Shortcuts actions, and 
 reinstalls it. The apps need no changes, and no extra App IDs are used. Names follow three rules:
 
 - Kinds several apps can have (actions, widgets, keyboards, Safari content blockers, photo editing, call
-  blocking, screen broadcast) show as **App - Extension**, for example "LCTestApp - Content Blocker".
+  blocking, screen broadcast) show as **App - Extension**, for example "MyApp - Content Blocker".
 - Share: iOS shows one share item per app, so apps' share extensions are listed inside LiveContainer's own
   share item, under **Share With**.
 - Where iOS groups by app (keyboards, the widget gallery), they're grouped under LiveContainer.

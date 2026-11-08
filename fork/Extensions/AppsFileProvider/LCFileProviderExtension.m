@@ -34,8 +34,7 @@ static NSString *statusFolder;
 static void LCFPSetStatus(NSString *folder, NSString *status) {
     if (!statusFolder || !folder.length) return;
     [NSFileManager.defaultManager createDirectoryAtPath:statusFolder withIntermediateDirectories:YES attributes:nil error:nil];
-    NSString *text = [NSString stringWithFormat:@"%@ (process %d)", status, getpid()];
-    [text writeToFile:[statusFolder stringByAppendingFormat:@"/%@.txt", folder] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [status writeToFile:[statusFolder stringByAppendingFormat:@"/%@.txt", folder] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
 #pragma mark - Paths
