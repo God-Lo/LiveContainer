@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.13",
+          "buildVersion": "3.8.11.13",
+          "date": "2026-11-08T05:38:23Z",
+          "localizedDescription": "Files: each app's location runs the app's own File Provider. Apps without one show their Documents.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.13/LiveContainer+SideStore.ipa",
+          "size": 23824347,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.12",
           "buildVersion": "3.8.11.12",
           "date": "2026-11-07T20:28:59Z",
