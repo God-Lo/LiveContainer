@@ -22,7 +22,7 @@ printf '#!/bin/sh\nexec "%s" "$1"\n' "$ROOT/fork/scripts/fetch.sh" > "$WORK/bin/
 export PATH="$WORK/bin:$PATH"
 
 echo "==> Building (unsigned Release archive)"
-git -C "$ROOT" submodule update --init --recursive
+git -C "$ROOT" submodule update --init --recursive --depth 1
 xcodebuild archive -project "$ROOT/LiveContainer.xcodeproj" -scheme LiveContainer -sdk iphoneos -arch arm64 \
   -configuration Release -archivePath "$WORK/archive" -derivedDataPath "$OUT/DerivedData" \
   CODE_SIGNING_ALLOWED=NO > "$OUT/build.log" 2>&1 || { tail -30 "$OUT/build.log"; echo "Build failed; see $OUT/build.log"; exit 1; }
