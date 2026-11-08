@@ -42,6 +42,7 @@ enum LCFork {
         let folder = app.relativeBundlePath ?? ""
         if !folder.isEmpty, let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: LCSharedUtils.appGroupID()) {
             try? FileManager.default.removeItem(at: group.appendingPathComponent("LiveContainer/Data/ExtensionHome/\(folder)"))
+            try? FileManager.default.removeItem(at: group.appendingPathComponent("LiveContainer/FilesStatus/\(folder).txt"))
         }
         LCForkFiles.sync()
         LCGuestIntentsIndexer.reindex(apps: remaining) {

@@ -25,6 +25,19 @@ static NSError *LCFPError(NSFileProviderErrorCode code) {
     return [NSError errorWithDomain:NSFileProviderErrorDomain code:code userInfo:nil];
 }
 
+#pragma mark - Status
+
+/// What this location runs, for LiveContainer's settings: LiveContainer/FilesStatus/<folder>.txt in the
+/// app group. A file, because an app's code changes UserDefaults in this process once it's loaded.
+static NSString *statusFolder;
+
+static void LCFPSetStatus(NSString *folder, NSString *status) {
+    if (!statusFolder || !folder.length) return;
+    [NSFileManager.defaultManager createDirectoryAtPath:statusFolder withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *text = [NSString stringWithFormat:@"%@ (process %d)", status, getpid()];
+    [text writeToFile:[statusFolder stringByAppendingFormat:@"/%@.txt", folder] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 #pragma mark - Paths
 
 static NSString *const kDomainPrefix = @"lc.files.";
@@ -166,6 +179,7 @@ static NSString *const kDomainPrefix = @"lc.files.";
 
 - (void)enumerateItemsForObserver:(id<NSFileProviderEnumerationObserver>)observer startingAtPage:(NSFileProviderPage)page {
     if (!self.store.documents) {
+        LCFPSetStatus(self.store.folder, @"Can't reach the app's Documents");
         // Say so instead of looking empty.
         [observer finishEnumeratingWithError:[NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadNoPermissionError userInfo:@{
             NSLocalizedDescriptionKey: @"LiveContainer's Files can't reach this app's Documents. Open LiveContainer once, then try again."}]];
@@ -202,7 +216,12 @@ static NSString *const kDomainPrefix = @"lc.files.";
 - (instancetype)initWithDomain:(NSFileProviderDomain *)domain {
     NSString *identifier = domain.identifier;
     NSString *folder = [identifier hasPrefix:kDomainPrefix] ? [identifier substringFromIndex:kDomainPrefix.length] : identifier;
-    [LCSharedUtils appGroupID];  // before an app's code changes this process's environment
+    // Before an app's code changes this process's environment.
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *group = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]].path;
+        statusFolder = group ? [group stringByAppendingPathComponent:@"LiveContainer/FilesStatus"] : nil;
+    });
     id hosted = [LCFileProviderExtension appProviderFor:folder domain:domain];
     if (hosted) return hosted;
     self = [super init];
@@ -218,16 +237,19 @@ static NSString *const kDomainPrefix = @"lc.files.";
         NSString *error = nil;
         if (!LCLoadHostedGuestExtension(entry, &error)) {
             // One app per process: another app's provider already runs here. Show this app's Documents.
-            NSLog(@"[LCFiles] %@: %@", folder, error);
+            LCFPSetStatus(folder, [NSString stringWithFormat:@"Couldn't run the app's File Provider, showing its Documents: %@", error]);
             return nil;
         }
-        Class cls = NSClassFromString(entry[@"NSExtension"][@"NSExtensionPrincipalClass"] ?: @"");
+        NSString *className = entry[@"NSExtension"][@"NSExtensionPrincipalClass"] ?: @"";
+        Class cls = NSClassFromString(className);
         if (![cls instancesRespondToSelector:@selector(initWithDomain:)]) {
-            NSLog(@"[LCFiles] %@: the app's File Provider has no class %@", folder, entry[@"NSExtension"][@"NSExtensionPrincipalClass"]);
+            LCFPSetStatus(folder, [NSString stringWithFormat:@"The app's File Provider has no class %@, showing its Documents", className]);
             return nil;
         }
+        LCFPSetStatus(folder, @"Running the app's File Provider");
         return [(id<NSFileProviderReplicatedExtension>)[cls alloc] initWithDomain:domain];
     }
+    LCFPSetStatus(folder, @"Showing the app's Documents");
     return nil;
 }
 
