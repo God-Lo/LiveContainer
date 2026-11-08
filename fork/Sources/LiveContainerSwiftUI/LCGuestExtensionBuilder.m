@@ -122,10 +122,11 @@ static NSDictionary *backgroundInfo(NSString *bundlePath) {
     return found;
 }
 
-/// The app picked for background events, among the apps the rebuild includes.
-static NSDictionary *backgroundApp(NSArray<NSDictionary *> *apps) {
-    for (NSDictionary *app in apps) if ([app[@"points"] containsObject:kLCPointBackgroundEvents]) return app;
-    return nil;
+/// Apps with Background Events on, among the apps the rebuild includes.
+static NSArray<NSDictionary *> *backgroundApps(NSArray<NSDictionary *> *apps) {
+    return [apps filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *app, id _) {
+        return [app[@"points"] containsObject:kLCPointBackgroundEvents];
+    }]];
 }
 
 /// Info.plist key holding what the merge changed: key -> LiveContainer's own value, or kAbsent.
@@ -134,9 +135,9 @@ static NSString *const kAbsent = @"(absent)";
 
 @implementation LCGuestExtensionBuilder
 
-/// Puts LiveContainer's own Info.plist values back, then adds the background-events app's: its
-/// background modes, accessory protocols and background task IDs, and permission texts LiveContainer
-/// lacks. iOS reads these from LiveContainer's Info.plist only.
+/// Puts LiveContainer's own Info.plist values back, then adds those of the apps with Background Events
+/// on: their background modes, accessory protocols and background task IDs, and permission texts
+/// LiveContainer lacks. iOS reads these from LiveContainer's Info.plist only.
 + (BOOL)mergeBackgroundInfoOfApps:(NSArray<NSDictionary *> *)apps intoApp:(NSURL *)app error:(NSError **)error {
     NSString *path = [app.path stringByAppendingPathComponent:@"Info.plist"];
     NSMutableDictionary *info = [[NSDictionary dictionaryWithContentsOfFile:path] mutableCopy];
@@ -151,20 +152,21 @@ static NSString *const kAbsent = @"(absent)";
     }
     [info removeObjectForKey:kMergedOriginals];
 
-    NSDictionary *background = backgroundApp(apps);
-    NSDictionary *guest = background ? backgroundInfo(background[@"bundlePath"]) : nil;
     NSMutableDictionary *changed = [NSMutableDictionary new];
+    for (NSDictionary *app in backgroundApps(apps)) {
+    NSDictionary *guest = backgroundInfo(app[@"bundlePath"]);
     for (NSString *key in guest) {
         if ([LCBackgroundEventsListKeys() containsObject:key]) {
             NSMutableArray *merged = [info[key] isKindOfClass:NSArray.class] ? [info[key] mutableCopy] : [NSMutableArray new];
             for (id value in guest[key]) if (![merged containsObject:value]) [merged addObject:value];
             if ([merged isEqual:info[key]]) continue;
-            changed[key] = info[key] ?: kAbsent;
+            if (!changed[key]) changed[key] = info[key] ?: kAbsent;
             info[key] = merged;
         } else if (!info[key]) {
             changed[key] = kAbsent;
             info[key] = guest[key];
         }
+    }
     }
     if (changed.count) info[kMergedOriginals] = changed;
     if (![info writeToFile:path atomically:YES]) {
@@ -218,13 +220,13 @@ static NSString *const kAbsent = @"(absent)";
     // Files needs one rebuild too: the File Provider's document group is set to LiveContainer's real
     // app group then (LCSelfIPABuilder).
     BOOL files = [[apps valueForKeyPath:@"@unionOfArrays.points"] containsObject:kLCPointFileProvider];
-    NSDictionary *background = backgroundApp(apps);
-    if (!selected.count && !files && !background) return @"";
+    NSArray *background = backgroundApps(apps);
+    if (!selected.count && !files && !background.count) return @"";
     NSMutableString *text = [@"v5" mutableCopy];  // bump when copies are built differently, so installs rebuild
     if (files) [text appendString:@"|files"];
-    if (background) {
-        NSData *keys = [NSPropertyListSerialization dataWithPropertyList:backgroundInfo(background[@"bundlePath"]) format:NSPropertyListXMLFormat_v1_0 options:0 error:nil];
-        [text appendFormat:@"|background|%@|%@", background[@"folder"], sha256Hex(keys ?: NSData.data)];
+    for (NSDictionary *app in background) {
+        NSData *keys = [NSPropertyListSerialization dataWithPropertyList:backgroundInfo(app[@"bundlePath"]) format:NSPropertyListXMLFormat_v1_0 options:0 error:nil];
+        [text appendFormat:@"|background|%@|%@", app[@"folder"], sha256Hex(keys ?: NSData.data)];
     }
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];

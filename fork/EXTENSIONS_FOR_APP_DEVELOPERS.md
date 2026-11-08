@@ -37,17 +37,21 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
 
 ## Background events
 
-With your app picked under **Background Events**, LiveContainer's Info.plist gets your
-`UIBackgroundModes`, `UISupportedExternalAccessoryProtocols`, `BGTaskSchedulerPermittedIdentifiers` and
-any permission texts it lacks. When iOS starts LiveContainer in the background (Bluetooth state
-restoration or connection events, accessories, location, background tasks), your app starts instead of
-LiveContainer's screen, with iOS's launch options. Use the standard APIs as usual: restore IDs, delegates
-and task handlers work as they would natively.
+With **Background Events** on for your app, LiveContainer's Info.plist gets your `UIBackgroundModes`,
+`UISupportedExternalAccessoryProtocols`, `BGTaskSchedulerPermittedIdentifiers` and any permission texts
+it lacks. iOS sends these events to LiveContainer, which passes them to your app running in the
+background (LiveProcess). Use the standard APIs as usual:
 
-- One app at a time: iOS wakes LiveContainer's own process, which runs one app.
-- Push notifications and VoIP pushes don't work: they need entitlements LiveContainer doesn't have.
-- Events arrive only while LiveContainer isn't running another app, or is running yours.
+- Bluetooth: your `CBCentralManager` restore IDs and `registerForConnectionEvents` filters are made by
+  LiveContainer; your delegate gets `centralManager(_:willRestoreState:)` and
+  `centralManager(_:connectionEventDidOccur:for:)`.
+- Accessories: `EAAccessoryManager.connectedAccessories` and the connect/disconnect notifications work,
+  and `EASession` streams are relayed to the real accessory by LiveContainer.
+- Location: significant-change and region monitoring; your delegate gets the updates.
+- Background tasks: your `BGTaskScheduler` handlers run with the task; `setTaskCompleted` and
+  `expirationHandler` work.
 
-## Debugging
-
-The device log has `[LCGuestExtension]` lines from your extension's process.
+LiveContainer learns what your app registers while it runs, so it needs to have run once after the
+switch is on. Push notifications and VoIP pushes don't work: they need entitlements LiveContainer doesn't
+have. Events arrive while LiveContainer shows its own screen or is in the background, not while it's
+running another app.

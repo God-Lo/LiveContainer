@@ -46,13 +46,15 @@ reinstalls it. The apps need no changes, and no extra App IDs are used. Names fo
   File Provider run it there; other apps show their Documents. Works for every app.
 - Kinds for one app at a time (**iMessage, SMS Filter**) show as **LiveContainer**.
   Pick the app in its settings or in LiveContainer's **Settings → App Extensions**.
-- **Background Events** (one app at a time): when iOS wakes LiveContainer in the background for
-  Bluetooth, accessories, location or background tasks, LiveContainer starts the picked app without
-  showing it, so the app gets the event as it would on its own. Opening LiveContainer then shows
-  LiveContainer as usual.
+- **Background Events**: apps get their Bluetooth, accessory, location and background task events
+  while LiveContainer is in the background. LiveContainer listens on their behalf, starts each app that
+  registered for an event without showing it, and passes the event to the app's own code, so widgets
+  and controls stay current. Turn it on, then open the app once so LiveContainer learns what it uses.
 - Every switch is off by default. Grayed out: the app doesn't have that kind. Tap **Apply Changes**
   when done; LiveContainer reinstalls once.
 - Turning a switch off or deleting the app removes its extension at the next rebuild.
+- Tapping an app's widget opens that app, with the widget's link. Links to an app's own URL scheme
+  open that app too.
 - Keyboards also need **Allow Full Access** in iOS Settings to reach the app's data.
 - App developers: see [EXTENSIONS_FOR_APP_DEVELOPERS.md](fork/EXTENSIONS_FOR_APP_DEVELOPERS.md).
 

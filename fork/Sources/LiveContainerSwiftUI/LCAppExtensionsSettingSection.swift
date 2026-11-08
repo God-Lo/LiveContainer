@@ -49,6 +49,13 @@ struct LCAppExtensionsSettingSection: View {
         return "\n\nFiles: " + status + "."
     }
 
+    /// When LiveContainer last passed this app a background event.
+    private var backgroundStatus: String {
+        guard enabled.contains(LCForkBackground.point), let folder = appInfo.relativeBundlePath,
+              let date = LCForkBackground.lastEvent(folder: folder) else { return "" }
+        return "\n\nLast background event: " + date.formatted(date: .abbreviated, time: .shortened) + "."
+    }
+
     private func binding(_ point: String) -> Binding<Bool> {
         guard available.contains(point) else { return .constant(false) }
         return Binding(get: { enabled.contains(point) }, set: { on in
@@ -81,7 +88,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage, SMS Filter and Background Events work for one app at a time." + filesStatus
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. Background Events passes the app its Bluetooth, accessory, location and background task events while LiveContainer is in the background. iMessage and SMS Filter work for one app at a time." + filesStatus + backgroundStatus
                  : "Change these in the main LiveContainer.")
         }
     }
@@ -90,11 +97,6 @@ struct LCAppExtensionsSettingSection: View {
 /// In LiveContainer's Settings: which app uses each kind that works for one app at a time.
 struct LCSingleAppExtensionsSection: View {
     @State private var refresh = 0
-
-    private var lastBackgroundStart: String {
-        guard let date = LCForkBackground.lastStart else { return "" }
-        return "\n\nLast started in the background: " + date.formatted(date: .abbreviated, time: .shortened) + "."
-    }
 
     private var apps: [LCAppInfo] {
         let model = DataManager.shared.model
@@ -131,7 +133,7 @@ struct LCSingleAppExtensionsSection: View {
             } header: {
                 Text("App Extensions")
             } footer: {
-                Text("iOS allows one app at a time for these. Grayed out: none of your apps has it. Background Events: iOS wakes LiveContainer for Bluetooth, accessories, location and background tasks, and LiveContainer starts this app without showing it, so the app updates its widgets and controls as it would on its own." + lastBackgroundStart)
+                Text("iOS allows one app at a time for these. Grayed out: none of your apps has it.")
             }
         }
     }

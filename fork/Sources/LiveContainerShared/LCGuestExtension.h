@@ -32,7 +32,7 @@ static NSString *const kLCPointKeyboard = @"com.apple.keyboard-service";
 static NSString *const kLCPointBroadcast = @"com.apple.broadcast-services-upload";
 static NSString *const kLCPointMessageFilter = @"com.apple.identitylookup.message-filter";
 /// Not an extension: the app's background events (Bluetooth, accessories, location, background tasks),
-/// LCBackgroundEvents.h.
+/// which LiveContainer receives and passes on (LCBackgroundEvents.h).
 static NSString *const kLCPointBackgroundEvents = @"lc.background-events";
 
 /// In display order.
@@ -52,10 +52,9 @@ static inline NSString *LCGuestExtensionKindName(NSString *point) {
 }
 
 /// Kinds iOS allows once per app, so LiveContainer offers them for one app at a time: the app is picked
-/// in Settings, and iOS sees them under LiveContainer's own name. Background events too: iOS wakes
-/// LiveContainer's own process, which runs one app.
+/// in Settings, and iOS sees them under LiveContainer's own name.
 static inline BOOL LCGuestExtensionIsSingleApp(NSString *point) {
-    return [@[kLCPointMessages, kLCPointMessageFilter, kLCPointBackgroundEvents] containsObject:point];
+    return [@[kLCPointMessages, kLCPointMessageFilter] containsObject:point];
 }
 
 /// Kinds iOS allows or shows only once per app even when there are several: share extensions and File

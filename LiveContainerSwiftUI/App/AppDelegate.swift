@@ -6,6 +6,7 @@ import Intents
         
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? ) -> Bool {
         application.shortcutItems = nil
+        LCForkBackground.start(launchOptions) // fork
         UserDefaults.standard.removeObject(forKey: "LCNeedToAcquireJIT")
         
         NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { _ in
@@ -54,6 +55,11 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate, ObservableObject { // Make
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         self.window = (scene as? UIWindowScene)?.keyWindow
+        connectionOptions.userActivities.forEach { LCForkWidgets.open($0) } // fork
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        LCForkWidgets.open(userActivity) // fork
     }
     
 }

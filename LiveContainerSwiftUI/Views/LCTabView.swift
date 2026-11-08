@@ -115,6 +115,7 @@ struct LCTabView: View {
     }
     
     func dispatchURL(url: URL) {
+        let url = LCForkWidgets.launchURL(for: url) ?? url // fork: an app's own link opens that app
         repeat {
             if url.isFileURL {
                 sharedModel.selectedTab = .apps
