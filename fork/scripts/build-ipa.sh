@@ -74,7 +74,8 @@ ln -s "$ROOT/.github" "$WORK/.github"
   || { tail -30 "$OUT/package.log"; exit 1; }
 # Upstream's script keeps going when a download fails; a release without the built-in SideStore can't
 # update itself.
-unzip -l "$WORK/LiveContainer+SideStore.ipa" | grep -q "Frameworks/SideStoreApp.framework/SideStore$" \
+LISTING=$(unzip -l "$WORK/LiveContainer+SideStore.ipa")
+grep -q "Frameworks/SideStoreApp.framework/SideStore$" <<< "$LISTING" \
   || { tail -30 "$OUT/package.log"; echo "The built-in SideStore is missing (its download failed). Try again later."; exit 1; }
 
 cp "$WORK/LiveContainer+SideStore.ipa" "$WORK/LiveContainer.ipa" "$OUT/"
