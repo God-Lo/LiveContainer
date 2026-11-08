@@ -31,15 +31,12 @@ static NSString *const kLCPointCallDirectory = @"com.apple.callkit.call-director
 static NSString *const kLCPointKeyboard = @"com.apple.keyboard-service";
 static NSString *const kLCPointBroadcast = @"com.apple.broadcast-services-upload";
 static NSString *const kLCPointMessageFilter = @"com.apple.identitylookup.message-filter";
-/// Not an extension: the app's background events (Bluetooth, accessories, location, background tasks),
-/// which LiveContainer receives and passes on (LCBackgroundEvents.h).
-static NSString *const kLCPointBackgroundEvents = @"lc.background-events";
 
 /// In display order.
 static inline NSArray<NSString *> *LCGuestExtensionPoints(void) {
     return @[kLCPointWidgets, kLCPointShare, kLCPointAction, kLCPointFileProvider, kLCPointContentBlocker,
              kLCPointPhotoEditing, kLCPointMessages, kLCPointCallDirectory, kLCPointKeyboard,
-             kLCPointBroadcast, kLCPointMessageFilter, kLCPointBackgroundEvents];
+             kLCPointBroadcast, kLCPointMessageFilter];
 }
 
 static inline NSString *LCGuestExtensionKindName(NSString *point) {
@@ -47,8 +44,7 @@ static inline NSString *LCGuestExtensionKindName(NSString *point) {
              kLCPointKeyboard: @"Keyboard", kLCPointContentBlocker: @"Safari Content Blocker",
              kLCPointFileProvider: @"Files", kLCPointWidgets: @"Widgets",
              kLCPointPhotoEditing: @"Photo Editing", kLCPointMessages: @"iMessage",
-             kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter",
-             kLCPointBackgroundEvents: @"Background Events"}[point] ?: point;
+             kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
 }
 
 /// Kinds iOS allows once per app, so LiveContainer offers them for one app at a time: the app is picked

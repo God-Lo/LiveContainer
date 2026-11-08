@@ -102,7 +102,6 @@ enum LCSelfUpdate {
         guard LCGuestIntentsIndexer.isPrimaryLiveContainer else { return }
         let apps = allApps
         LCForkFiles.sync()
-        LCForkBackground.sync()
         LCGuestIntentsIndexer.reindex(apps: apps) {
             let p = pending(apps)
             // Switched back before anything was applied: nothing to do.
@@ -153,6 +152,13 @@ enum LCSelfUpdate {
         DispatchQueue.global(qos: .utility).async {
             let fm = FileManager.default
             try? fm.removeItem(at: LCPath.docPath.appendingPathComponent("LCSelfUpdate"))
+            // What "Background Events" (3.8.11.18-19, since removed) kept. Remove in the next version.
+            if let group = fm.containerURL(forSecurityApplicationGroupIdentifier: LCSharedUtils.appGroupID()) {
+                try? fm.removeItem(at: group.appendingPathComponent("LiveContainer/BackgroundEvents"))
+            }
+            for key in ["LCBackgroundEventsLast", "LCBackgroundEventsApp", "LCBackgroundEventsLastStart"] {
+                UserDefaults.lcShared().removeObject(forKey: key)
+            }
             let tmp = fm.temporaryDirectory
             try? fm.removeItem(at: tmp.appendingPathComponent("LCSelfUpdate"))
             let installFiles: Set<String> = ["LiveContainer.ipa", "App.ipa", "App.app"]

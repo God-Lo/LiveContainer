@@ -8,7 +8,6 @@
 //
 
 #import "LCGuestIntentProtocol.h"
-#import "../LiveContainerShared/LCBackgroundEvents.h"
 #import <dlfcn.h>
 
 @interface LCGILNAction : NSObject
@@ -88,10 +87,6 @@
     }];
 }
 
-- (void)deliverBackgroundEvent:(NSData *)event {
-    LCBackgroundEventsGuestDeliver(event);
-}
-
 @end
 
 static LCGuestIntentClient *sharedClient;
@@ -107,10 +102,6 @@ void LCGuestIntentClientSetup(NSDictionary *appInfo) {
     connection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(LCGuestIntentHost)];
     sharedClient.connection = connection;
     [connection activate];
-    // Background events reach the app through the same connection.
-    LCBackgroundEventsGuestConnect(^id<LCGuestIntentHost> {
-        return [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { NSLog(@"[LCBE] guest: host unreachable: %@", error); }];
-    });
     [NSNotificationCenter.defaultCenter addObserver:sharedClient selector:@selector(appDidFinishLaunching:)
                                                name:@"UIApplicationDidFinishLaunchingNotification" object:nil];
 }

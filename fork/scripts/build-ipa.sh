@@ -18,7 +18,7 @@ rm -rf "$WORK" && mkdir -p "$WORK/bin"
 command -v ldid >/dev/null || brew install ldid
 # upstream's packaging script downloads with wget: use fetch.sh, which works around GitHub release links
 # timing out
-printf '#!/bin/sh\nexec "%s" "$1"\n' "$ROOT/fork/scripts/fetch.sh" > "$WORK/bin/wget"; chmod +x "$WORK/bin/wget"
+printf '#!/bin/sh\nFETCH_SIGNED_IN=1 exec "%s" "$1"\n' "$ROOT/fork/scripts/fetch.sh" > "$WORK/bin/wget"; chmod +x "$WORK/bin/wget"
 export PATH="$WORK/bin:$PATH"
 
 echo "==> Building (unsigned Release archive)"

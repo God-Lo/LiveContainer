@@ -35,25 +35,6 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   own, and only app groups are shared.
 - Changes take a LiveContainer reinstall: turning a kind on or off, and updating your app.
 
-## Background events
+## Debugging
 
-With **Background Events** on for your app, LiveContainer's Info.plist gets your `UIBackgroundModes`,
-`UISupportedExternalAccessoryProtocols`, `BGTaskSchedulerPermittedIdentifiers` and any permission texts
-it lacks. iOS sends these events to LiveContainer, which passes them to your app running in the
-background (LiveProcess). Use the standard APIs as usual:
-
-- Bluetooth: your `CBCentralManager` restore IDs and `registerForConnectionEvents` filters are made by
-  LiveContainer; your delegate gets `centralManager(_:willRestoreState:)` and
-  `centralManager(_:connectionEventDidOccur:for:)`.
-- Accessories: when an accessory with one of your protocols connects or disconnects, your app is
-  started and gets the connect notification; it opens its `EASession` as usual. Actions (Shortcuts,
-  Control Center) and background events share one running copy of your app, so its session is there
-  for both.
-- Location: significant-change and region monitoring; your delegate gets the updates.
-- Background tasks: your `BGTaskScheduler` handlers run with the task; `setTaskCompleted` and
-  `expirationHandler` work.
-
-LiveContainer learns what your app registers while it runs, so it needs to have run once after the
-switch is on. Push notifications and VoIP pushes don't work: they need entitlements LiveContainer doesn't
-have. Events arrive while LiveContainer shows its own screen or is in the background, not while it's
-running another app.
+The device log has `[LCGuestExtension]` lines from your extension's process.

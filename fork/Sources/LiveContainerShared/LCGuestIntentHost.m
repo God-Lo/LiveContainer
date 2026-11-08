@@ -22,7 +22,6 @@
 #import "../../../LiveContainer/utils.h"
 #import "../../../LiveContainer/LCSharedUtils.h"
 #import "../LiveProcess/LCGuestIntentProtocol.h"
-#import "LCBackgroundEventsHost.h"
 
 typedef void (^LCGIPerformCompletion)(id result, NSError *error);
 
@@ -43,12 +42,8 @@ static NSString *lcHomePath(void) {
 
 #pragma mark - One running guest
 
-@interface LCGuestIntentSession : NSObject <NSXPCListenerDelegate, LCGuestIntentHost, LCBEHostSession>
+@interface LCGuestIntentSession : NSObject <NSXPCListenerDelegate, LCGuestIntentHost>
 @property NSString *bundleId;
-/// Set instead of bundleId when started for background events, which address apps by folder.
-@property NSString *folder;
-/// Background events in progress: an event's grace period, a running task.
-@property NSInteger holds;
 @property NSXPCListener *listener;
 @property NSXPCConnection *connection;
 @property NSExtension *extension;
@@ -97,7 +92,7 @@ static NSString *lcHomePath(void) {
 }
 
 - (NSError *)start {
-    NSString *folder = self.folder ?: [LCGuestIntentSession folderForBundleId:self.bundleId];
+    NSString *folder = [LCGuestIntentSession folderForBundleId:self.bundleId];
     bool isShared = false;
     NSBundle *bundle = folder ? [LCSharedUtils findBundleWithBundleId:folder isSharedAppOut:&isShared] : nil;
     NSLog(@"[LCGI] host: start %@ folder=%@ found=%d", self.bundleId, folder, bundle != nil);
@@ -187,19 +182,18 @@ static NSString *lcHomePath(void) {
 /// iOS suspends an idle LiveProcess after a few minutes, and messages to it then go unanswered. So
 /// never keep one around: stop it shortly after its last action and start a fresh one next time.
 - (void)scheduleIdleShutdown {
-    if (self.completions.count || self.pending.count || self.holds > 0) return;
+    if (self.completions.count || self.pending.count) return;
     NSUInteger generation = ++self.generation;
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         LCGuestIntentSession *session = weakSelf;
-        if (!session || session.generation != generation || session.completions.count || session.pending.count || session.holds > 0) return;
+        if (!session || session.generation != generation || session.completions.count || session.pending.count) return;
         [session shutdown];
     });
 }
 
 - (void)shutdown {
     if (self.dead) return;
-    LCBEHostSessionEnded(self);
     NSLog(@"[LCGI] host: stopping LiveProcess for %@", self.bundleId);
     self.dead = YES;
     [self.connection invalidate];
@@ -229,36 +223,6 @@ static NSString *lcHomePath(void) {
     if (self.ready && self.connection) send(); else [self.pending addObject:send];
 }
 
-#pragma mark Background events
-
-- (void)hold {
-    self.holds++;
-    self.generation++;
-}
-
-- (void)releaseHold {
-    if (self.holds > 0) self.holds--;
-    [self scheduleIdleShutdown];
-}
-
-- (void)deliverEvent:(NSDictionary *)event {
-    NSData *data = [NSPropertyListSerialization dataWithPropertyList:event format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
-    if (!data) return;
-    // Time for the app to act on it (update widgets, read the accessory) before LiveProcess stops.
-    [self hold];
-    __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [weakSelf releaseHold]; });
-    dispatch_block_t send = ^{
-        NSLog(@"[LCBE] host: sending %@ to %@", event[@"type"], weakSelf.folder);
-        [[weakSelf.connection remoteObjectProxy] deliverBackgroundEvent:data];
-    };
-    if (self.ready && self.connection) send(); else [self.pending addObject:send];
-}
-
-- (void)backgroundTaskWithToken:(NSString *)token didFinish:(BOOL)success {
-    dispatch_async(dispatch_get_main_queue(), ^{ LCBEHostTaskFinished(token, success); });
-}
-
 - (void)failAll:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.pending removeAllObjects];
@@ -281,25 +245,6 @@ static NSString *lcHomePath(void) {
 
 static NSDictionary<NSString *, NSDictionary *> *guestIntentMap;
 static NSMutableDictionary<NSString *, LCGuestIntentSession *> *sessions;
-
-/// Starts the app (by folder) in LiveProcess if needed and delivers a background event to it.
-id<LCBEHostSession> LCBEHostDeliver(NSString *folder, NSDictionary *event) {
-    if (!sessions) sessions = [NSMutableDictionary dictionary];
-    NSString *key = folder;
-    LCGuestIntentSession *session = sessions[key];
-    if (!session || session.dead) {
-        session = [[LCGuestIntentSession alloc] initWithBundleId:folder];
-        session.folder = folder;
-        NSError *error = [session start];
-        if (error) {
-            NSLog(@"[LCBE] host: couldn't start %@: %@", folder, error.localizedDescription);
-            return nil;
-        }
-        sessions[key] = session;
-    }
-    [session deliverEvent:event];
-    return session;
-}
 
 static BOOL typeResolvesHere(NSString *mangled) {
     static LCGIGetTypeByMangledName getType;
@@ -327,19 +272,15 @@ static BOOL forwardIfGuestAction(id action, LCGIPerformCompletion completion) {
     }
     dispatch_async(dispatch_get_main_queue(), ^{
         NSString *bundleId = entry[@"bundleId"];
-        // One LiveProcess per app, shared with background events, so the app's connections (an
-        // accessory session, say) are there for its actions too.
-        NSString *folder = [LCGuestIntentSession folderForBundleId:bundleId] ?: bundleId;
-        LCGuestIntentSession *session = sessions[folder];
+        LCGuestIntentSession *session = sessions[bundleId];
         if (!session || session.dead) {
             session = [[LCGuestIntentSession alloc] initWithBundleId:bundleId];
-            session.folder = [LCGuestIntentSession folderForBundleId:bundleId];
             NSError *error = [session start];
             if (error) {
                 completion(nil, error);
                 return;
             }
-            sessions[folder] = session;
+            sessions[bundleId] = session;
         }
         [session perform:archived identifier:entry[@"identifier"] completion:completion];
     });

@@ -16,10 +16,6 @@ static NSString *const kLCGuestIntentEndpointKey = @"lcGuestIntentEndpoint";
 - (void)guestDidFinishLaunching;
 /// `result` is the NSKeyedArchiver data of the action's result object (may be nil).
 - (void)actionWithToken:(NSString *)token didFinishWithResult:(NSData *)result error:(NSString *)error;
-
-// Background events (LCBackgroundEvents.h)
-/// The app finished the background task LiveContainer handed it.
-- (void)backgroundTaskWithToken:(NSString *)token didFinish:(BOOL)success;
 @end
 
 /// Implemented by the guest process, called by LiveContainer.
@@ -27,12 +23,7 @@ static NSString *const kLCGuestIntentEndpointKey = @"lcGuestIntentEndpoint";
 /// `action` is an NSKeyedArchiver archive of the LNAction LiveContainer received. The guest re-creates
 /// it with the guest's own `identifier` (it may have been renamed when merged into LiveContainer).
 - (void)performAction:(NSData *)action identifier:(NSString *)identifier token:(NSString *)token;
-
-// Background events (LCBackgroundEvents.h)
-/// `event` is a property list: { type, ... }, see LCBackgroundEvents.m.
-- (void)deliverBackgroundEvent:(NSData *)event;
 @end
-
 
 #ifdef __cplusplus
 extern "C"

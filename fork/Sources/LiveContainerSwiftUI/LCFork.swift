@@ -17,7 +17,6 @@ enum LCFork {
     static func appsLoaded(_ apps: [LCAppInfo]) {
         LCSelfUpdate.cleanUpLeftovers()
         LCForkFiles.sync()
-        LCForkBackground.sync()
         LCGuestIntentsIndexer.reindex(apps: apps) {
             LCSelfUpdate.offerIfNeeded(.launch)
         }
@@ -46,7 +45,6 @@ enum LCFork {
             try? FileManager.default.removeItem(at: group.appendingPathComponent("LiveContainer/FilesStatus/\(folder).txt"))
         }
         LCForkFiles.sync()
-        LCForkBackground.sync()
         LCGuestIntentsIndexer.reindex(apps: remaining) {
             LCSelfUpdate.offerIfNeeded(.uninstalled(bundleId: removedId, folder: folder, name: app.displayName() ?? removedId))
         }

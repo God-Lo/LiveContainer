@@ -18,6 +18,5 @@
 #include "../LiveContainer/FoundationPrivate.h"
 #include "../fork/Sources/LiveContainerSwiftUI/LCSelfIPABuilder.h" // fork
 #include "../fork/Sources/LiveContainerSwiftUI/LCGuestExtensionBuilder.h" // fork
-#include "../fork/Sources/LiveContainerShared/LCBackgroundEvents.h" // fork
 
 #endif /* LiveContainerSwiftUI_Bridging_Header_h_h */

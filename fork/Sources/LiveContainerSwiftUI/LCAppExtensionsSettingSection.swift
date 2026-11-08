@@ -49,13 +49,6 @@ struct LCAppExtensionsSettingSection: View {
         return "\n\nFiles: " + status + "."
     }
 
-    /// When LiveContainer last passed this app a background event.
-    private var backgroundStatus: String {
-        guard enabled.contains(LCForkBackground.point), let folder = appInfo.relativeBundlePath,
-              let date = LCForkBackground.lastEvent(folder: folder) else { return "" }
-        return "\n\nLast background event: " + date.formatted(date: .abbreviated, time: .shortened) + "."
-    }
-
     private func binding(_ point: String) -> Binding<Bool> {
         guard available.contains(point) else { return .constant(false) }
         return Binding(get: { enabled.contains(point) }, set: { on in
@@ -88,7 +81,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. Background Events passes the app its Bluetooth, accessory, location and background task events while LiveContainer is in the background. iMessage and SMS Filter work for one app at a time." + filesStatus + backgroundStatus
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage and SMS Filter work for one app at a time." + filesStatus
                  : "Change these in the main LiveContainer.")
         }
     }
