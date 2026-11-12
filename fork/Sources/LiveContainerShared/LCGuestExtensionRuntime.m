@@ -142,16 +142,33 @@ static NSString *mapId(NSString *identifier) {
 }
 
 static void replaceMethod(Class cls, SEL sel, BOOL classMethod, id (^makeBlock)(IMP orig)) {
+    if (!cls) return;
     Method m = classMethod ? class_getClassMethod(cls, sel) : class_getInstanceMethod(cls, sel);
     if (!m) return;
     method_setImplementation(m, imp_implementationWithBlock(makeBlock(method_getImplementation(m))));
 }
 
+/// Kinds of apps' extensions copied into this LiveContainer.
+static NSSet<NSString *> *copiedKinds;
+/// YES in an app's extension copied into LiveContainer.
+static BOOL inCopiedExtension;
+
+/// The class to hook, or nil when hooking it would do nothing. Its framework is only loaded when a hook
+/// is needed and the app could still load it later; frameworks loaded for nothing slow every app's
+/// start and use memory, which extensions like keyboards have little of.
+static Class hookTarget(NSString *className, const char *framework, BOOL needed) {
+    if (!needed) return nil;
+    Class cls = NSClassFromString(className);
+    // A copied extension's frameworks are all loaded by now: if it isn't there, the extension doesn't use it.
+    if (cls || inCopiedExtension) return cls;
+    dlopen(framework, RTLD_LAZY);
+    return NSClassFromString(className);
+}
+
 static void installIdHooks(void) {
-    dlopen("/System/Library/Frameworks/SafariServices.framework/SafariServices", RTLD_LAZY);
-    dlopen("/System/Library/Frameworks/CallKit.framework/CallKit", RTLD_LAZY);
-    dlopen("/System/Library/Frameworks/ReplayKit.framework/ReplayKit", RTLD_LAZY);
-    Class blocker = NSClassFromString(@"SFContentBlockerManager");
+    // Without a copy of that kind there is nothing to point at, so these are left alone.
+    Class blocker = hookTarget(@"SFContentBlockerManager", "/System/Library/Frameworks/SafariServices.framework/SafariServices",
+                               [copiedKinds containsObject:kLCPointContentBlocker]);
     for (NSString *name in @[@"reloadContentBlockerWithIdentifier:completionHandler:", @"getStateOfContentBlockerWithIdentifier:completionHandler:"]) {
         SEL sel = NSSelectorFromString(name);
         replaceMethod(blocker, sel, YES, ^id(IMP orig) {
@@ -160,7 +177,8 @@ static void installIdHooks(void) {
             };
         });
     }
-    Class calls = NSClassFromString(@"CXCallDirectoryManager");
+    Class calls = hookTarget(@"CXCallDirectoryManager", "/System/Library/Frameworks/CallKit.framework/CallKit",
+                             [copiedKinds containsObject:kLCPointCallDirectory]);
     for (NSString *name in @[@"reloadExtensionWithIdentifier:completionHandler:", @"getEnabledStatusForExtensionWithIdentifier:completionHandler:"]) {
         SEL sel = NSSelectorFromString(name);
         replaceMethod(calls, sel, NO, ^id(IMP orig) {
@@ -171,8 +189,7 @@ static void installIdHooks(void) {
     }
     // Apps' own Files locations aren't used inside LiveContainer (it shows a folder per app instead):
     // their add/remove requests succeed without doing anything. LiveContainer's own locations (lc.files.*) pass.
-    dlopen("/System/Library/Frameworks/FileProvider.framework/FileProvider", RTLD_LAZY);
-    Class fpm = NSClassFromString(@"NSFileProviderManager");
+    Class fpm = hookTarget(@"NSFileProviderManager", "/System/Library/Frameworks/FileProvider.framework/FileProvider", YES);
     for (NSString *name in @[@"addDomain:completionHandler:", @"removeDomain:completionHandler:"]) {
         SEL sel = NSSelectorFromString(name);
         replaceMethod(fpm, sel, YES, ^id(IMP orig) {
@@ -186,7 +203,9 @@ static void installIdHooks(void) {
         });
     }
     SEL setPreferred = @selector(setPreferredExtension:);
-    replaceMethod(NSClassFromString(@"RPSystemBroadcastPickerView"), setPreferred, NO, ^id(IMP orig) {
+    Class picker = hookTarget(@"RPSystemBroadcastPickerView", "/System/Library/Frameworks/ReplayKit.framework/ReplayKit",
+                              [copiedKinds containsObject:kLCPointBroadcast]);
+    replaceMethod(picker, setPreferred, NO, ^id(IMP orig) {
         return ^(id self, NSString *identifier) {
             ((void (*)(id, SEL, NSString *))orig)(self, setPreferred, mapId(identifier));
         };
@@ -202,15 +221,21 @@ __attribute__((constructor)) static void LCGuestExtensionRuntimeInit(void) {
         if (!ext && ![appPath.lastPathComponent isEqualToString:@"LiveProcess.appex"]) return;
         appPath = appPath.stringByDeletingLastPathComponent.stringByDeletingLastPathComponent;
     }
+    inCopiedExtension = ext != nil;
     if (ext) setUpGuestExtension(ext);
 
     NSMutableDictionary *map = [NSMutableDictionary new];
+    NSMutableSet *kinds = [NSMutableSet new];
     NSString *plugins = [appPath stringByAppendingPathComponent:@"PlugIns"];
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:plugins error:nil]) {
         NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[plugins stringByAppendingFormat:@"/%@/Info.plist", name]];
         NSString *original = info[kLCGuestExtensionInfoKey][kLCGEAppexBundleId];
-        if (original && info[@"CFBundleIdentifier"]) map[original] = info[@"CFBundleIdentifier"];
+        if (!original || !info[@"CFBundleIdentifier"]) continue;
+        map[original] = info[@"CFBundleIdentifier"];
+        NSString *kind = info[@"NSExtension"][@"NSExtensionPointIdentifier"];
+        if (kind) [kinds addObject:kind];
     }
     extensionIdMap = map;
+    copiedKinds = kinds;
     installIdHooks();
 }

@@ -36,6 +36,8 @@ enum LCForkFiles {
         NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
             if let error { NSLog("[LCForkFiles] list: \(error)") }
             let group = DispatchGroup()
+            // Locations that are already there under the same name: nothing to register again.
+            var kept: [NSFileProviderDomainIdentifier: String] = [:]
             // Locations added by apps on their own in earlier builds: only removeAllDomains reaches them,
             // because the hook that ignores apps' requests also covers removeDomain.
             if domains.contains(where: { !$0.identifier.rawValue.hasPrefix(domainPrefix) }) {
@@ -43,7 +45,11 @@ enum LCForkFiles {
                 NSFileProviderManager.removeAllDomains { _ in group.leave() }
             } else {
                 // Locations of deleted apps and of apps that turned Files off, and all of them after a rebuild.
-                for domain in domains where reset || !wantedIds.contains(domain.identifier) {
+                for domain in domains {
+                    guard reset || !wantedIds.contains(domain.identifier) else {
+                        kept[domain.identifier] = domain.displayName
+                        continue
+                    }
                     group.enter()
                     NSFileProviderManager.remove(domain) { error in
                         if let error { NSLog("[LCForkFiles] remove \(domain.identifier.rawValue): \(error)") }
@@ -53,9 +59,15 @@ enum LCForkFiles {
             }
             group.notify(queue: .main) {
                 for domain in wanted {
+                    // Have Files look again, so changes made inside the app show up.
+                    let refresh = { NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer) { _ in } }
+                    if kept[domain.identifier] == domain.displayName {
+                        refresh()
+                        continue
+                    }
                     NSFileProviderManager.add(domain) { error in
                         if let error { NSLog("[LCForkFiles] add \(domain.identifier.rawValue): \(error)") }
-                        NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer) { _ in }
+                        refresh()
                     }
                 }
                 UserDefaults.lcShared().set(stamp, forKey: stampKey)

@@ -49,11 +49,27 @@ static NSString *const kDomainPrefix = @"lc.files.";
 - (nullable NSString *)pathFor:(NSFileProviderItemIdentifier)identifier;
 @end
 
-@implementation LCFPStore
+@implementation LCFPStore {
+    NSString *_documents;
+    CFAbsoluteTime _checked;
+}
 
 - (NSString *)documents {
+    // Asked for every item in a listing: look the app up at most once every few seconds.
+    @synchronized (self) {
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        if (_documents && now - _checked < 5) return _documents;
+        _checked = now;
+        _documents = [self findDocuments];
+        return _documents;
+    }
+}
+
+- (NSString *)findDocuments {
     NSString *groupId = [LCSharedUtils appGroupID];
-    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:groupId];
+    static NSUserDefaults *defaults;
+    static dispatch_once_t defaultsOnce;
+    dispatch_once(&defaultsOnce, ^{ defaults = [[NSUserDefaults alloc] initWithSuiteName:groupId]; });
     NSDictionary *app = nil;
     for (NSDictionary *a in [defaults arrayForKey:kAppsKey]) if ([a[@"folder"] isEqual:self.folder]) app = a;
     if (!app || ![app[@"dataUUID"] length]) return nil;
