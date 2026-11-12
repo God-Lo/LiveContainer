@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.21",
+          "buildVersion": "3.8.11.21",
+          "date": "2026-11-12T02:17:21Z",
+          "localizedDescription": "Apps and their extensions start with less work: system frameworks load only when needed. Files lists folders faster. Based on LiveContainer 3.8.11.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.21/LiveContainer+SideStore.ipa",
+          "size": 23834540,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.20",
           "buildVersion": "3.8.11.20",
           "date": "2026-11-08T10:53:02Z",
