@@ -31,12 +31,15 @@ static NSString *const kLCPointCallDirectory = @"com.apple.callkit.call-director
 static NSString *const kLCPointKeyboard = @"com.apple.keyboard-service";
 static NSString *const kLCPointBroadcast = @"com.apple.broadcast-services-upload";
 static NSString *const kLCPointMessageFilter = @"com.apple.identitylookup.message-filter";
+/// Not an extension: the app's AccessorySetupKit settings (NSAccessorySetup* in its Info.plist), which
+/// iOS reads from LiveContainer's Info.plist, so the rebuild adds them there.
+static NSString *const kLCPointAccessorySetup = @"lc.accessory-setup";
 
 /// In display order.
 static inline NSArray<NSString *> *LCGuestExtensionPoints(void) {
     return @[kLCPointWidgets, kLCPointShare, kLCPointAction, kLCPointFileProvider, kLCPointContentBlocker,
              kLCPointPhotoEditing, kLCPointMessages, kLCPointCallDirectory, kLCPointKeyboard,
-             kLCPointBroadcast, kLCPointMessageFilter];
+             kLCPointBroadcast, kLCPointMessageFilter, kLCPointAccessorySetup];
 }
 
 static inline NSString *LCGuestExtensionKindName(NSString *point) {
@@ -44,7 +47,8 @@ static inline NSString *LCGuestExtensionKindName(NSString *point) {
              kLCPointKeyboard: @"Keyboard", kLCPointContentBlocker: @"Safari Content Blocker",
              kLCPointFileProvider: @"Files", kLCPointWidgets: @"Widgets",
              kLCPointPhotoEditing: @"Photo Editing", kLCPointMessages: @"iMessage",
-             kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter"}[point] ?: point;
+             kLCPointCallDirectory: @"Call Blocking", kLCPointMessageFilter: @"SMS Filter",
+             kLCPointAccessorySetup: @"Accessory Setup"}[point] ?: point;
 }
 
 /// Kinds iOS allows once per app, so LiveContainer offers them for one app at a time: the app is picked

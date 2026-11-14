@@ -21,6 +21,9 @@ loads LiveContainer's runtime first. Build your app as usual; in most cases noth
   signing certificate, like share. iOS may run several apps' File Providers in one process; then only
   the first app gets its own home folder and settings, so keep the provider's data in an app group.
 - Frameworks in your app's `Frameworks/` that the extension links are copied next to it.
+- AccessorySetupKit: your app's `NSAccessorySetup*` Info.plist keys are added to LiveContainer's when
+  Accessory Setup is on, so `ASAccessorySession` works as in a normal install. Lists from several apps
+  are combined.
 
 ## Limits
 

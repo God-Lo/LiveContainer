@@ -81,7 +81,7 @@ struct LCAppExtensionsSettingSection: View {
             Text("App Extensions")
         } footer: {
             Text(isPrimary
-                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage and SMS Filter work for one app at a time." + filesStatus
+                 ? "Choose what this app adds to LiveContainer. Grayed out: the app doesn't have it. Apply Changes reinstalls LiveContainer; your data stays. Files gives this app a location in the Files app, served by its own File Provider or showing its Documents. iMessage and SMS Filter work for one app at a time. Accessory Setup lets the app pair its accessories (iOS 18 or later); while it's on, iOS may limit other apps' Bluetooth to accessories paired this way." + filesStatus
                  : "Change these in the main LiveContainer.")
         }
     }

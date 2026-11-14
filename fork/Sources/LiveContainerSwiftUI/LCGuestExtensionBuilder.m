@@ -122,6 +122,51 @@ static void restoreBackgroundEventsInfo(NSURL *app) {
     [info writeToFile:path atomically:YES];
 }
 
+/// The app's AccessorySetupKit settings: its NSAccessorySetup* Info.plist keys, or nil if it has none.
+static NSDictionary *accessorySetupInfo(NSString *bundlePath) {
+    NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[bundlePath stringByAppendingPathComponent:@"Info.plist"]];
+    if (![info[@"NSAccessorySetupKitSupports"] count]) return nil;
+    NSMutableDictionary *keys = [NSMutableDictionary new];
+    for (NSString *key in info) if ([key hasPrefix:@"NSAccessorySetup"]) keys[key] = info[key];
+    return keys;
+}
+
+static NSString *const kAccessoryOriginalsKey = @"LCForkAccessorySetupOriginals";
+
+/// Puts LiveContainer's own NSAccessorySetup* values back, then adds those of the apps with Accessory
+/// Setup on: lists are combined, other values come from the first app. LiveContainer's own values are
+/// kept under kAccessoryOriginalsKey so the next rebuild can undo this.
+static void applyAccessorySetup(NSURL *app, NSArray<NSDictionary *> *apps) {
+    NSString *path = [app.path stringByAppendingPathComponent:@"Info.plist"];
+    NSMutableDictionary *info = [[NSDictionary dictionaryWithContentsOfFile:path] mutableCopy];
+    NSDictionary *originals = info[kAccessoryOriginalsKey];
+    if (originals) {
+        for (NSString *key in info.allKeys) if ([key hasPrefix:@"NSAccessorySetup"]) [info removeObjectForKey:key];
+        [info addEntriesFromDictionary:originals];
+        [info removeObjectForKey:kAccessoryOriginalsKey];
+    }
+    NSMutableDictionary *own = [NSMutableDictionary new];
+    for (NSString *key in info) if ([key hasPrefix:@"NSAccessorySetup"]) own[key] = info[key];
+    BOOL added = NO;
+    for (NSDictionary *guest in apps) {
+        if (![guest[@"points"] containsObject:kLCPointAccessorySetup]) continue;
+        NSDictionary *keys = accessorySetupInfo(guest[@"bundlePath"]);
+        for (NSString *key in keys) {
+            id value = keys[key], current = info[key];
+            if ([value isKindOfClass:NSArray.class] && [current isKindOfClass:NSArray.class]) {
+                NSMutableOrderedSet *merged = [NSMutableOrderedSet orderedSetWithArray:current];
+                [merged addObjectsFromArray:value];
+                info[key] = merged.array;
+            } else if (!current) {
+                info[key] = value;
+            }
+            added = YES;
+        }
+    }
+    if (added) info[kAccessoryOriginalsKey] = own;
+    if (originals || added) [info writeToFile:path atomically:YES];
+}
+
 @implementation LCGuestExtensionBuilder
 
 + (NSArray<NSString *> *)allPoints { return LCGuestExtensionPoints(); }
@@ -143,6 +188,7 @@ static void restoreBackgroundEventsInfo(NSURL *app) {
 + (NSArray<NSString *> *)supportedPointsInBundle:(NSString *)bundlePath {
     NSMutableSet *points = [NSMutableSet new];
     for (NSDictionary *info in [self appexesInBundle:bundlePath].allValues) [points addObject:pointOf(info)];
+    if (accessorySetupInfo(bundlePath)) [points addObject:kLCPointAccessorySetup];
     return [LCGuestExtensionPoints() filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF IN %@", points]];
 }
 
@@ -167,9 +213,18 @@ static void restoreBackgroundEventsInfo(NSURL *app) {
     // Files needs one rebuild too: the File Provider's document group is set to LiveContainer's real
     // app group then (LCSelfIPABuilder).
     BOOL files = [[apps valueForKeyPath:@"@unionOfArrays.points"] containsObject:kLCPointFileProvider];
-    if (!selected.count && !files) return @"";
+    NSMutableString *accessory = [NSMutableString new];
+    for (NSDictionary *app in apps) {
+        if (![app[@"points"] containsObject:kLCPointAccessorySetup]) continue;
+        NSDictionary *keys = accessorySetupInfo(app[@"bundlePath"]);
+        if (!keys) continue;
+        NSData *plist = [NSPropertyListSerialization dataWithPropertyList:keys format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+        [accessory appendFormat:@"|%@:%@", app[@"folder"], sha256Hex(plist ?: NSData.data)];
+    }
+    if (!selected.count && !files && !accessory.length) return @"";
     NSMutableString *text = [@"v5" mutableCopy];  // bump when copies are built differently, so installs rebuild
     if (files) [text appendString:@"|files"];
+    if (accessory.length) [text appendFormat:@"|accessory%@", accessory];
     for (NSArray *s in selected) {
         NSDictionary *app = s[0];
         NSString *exec = [app[@"bundlePath"] stringByAppendingFormat:@"/PlugIns/%@/%@", s[1], s[2][@"CFBundleExecutable"]];
@@ -225,6 +280,7 @@ static void restoreBackgroundEventsInfo(NSURL *app) {
     NSString *hosted = [app.path stringByAppendingPathComponent:kLCHostedExtensionsFolder];
     [fm removeItemAtPath:hosted error:nil];
     restoreBackgroundEventsInfo(app);
+    applyAccessorySetup(app, apps);
     NSDictionary *lcInfo = [NSDictionary dictionaryWithContentsOfFile:[app.path stringByAppendingPathComponent:@"Info.plist"]];
     NSString *lcBundleId = NSBundle.mainBundle.bundleIdentifier;  // the rebuild fixes the prefix afterwards
     NSSet *singleDone = [NSMutableSet new];
