@@ -212,6 +212,59 @@ static void installIdHooks(void) {
     });
 }
 
+#pragma mark - Accessory access (AccessorySetupKit)
+
+/// This process's own bundle ID, read before an app replaces Bundle.main.
+static NSString *processBundleId;
+
+/// An app's accessory requests (AccessorySetupKit, through the private DeviceAccess framework) name the
+/// app by Bundle.main, which inside LiveContainer is the app's own ID. iOS only accepts the ID of the
+/// installed app, LiveContainer, whose Info.plist holds the app's accessory settings (the Accessory
+/// Setup switch). So the app's ID is replaced with this process's own in those requests.
+static NSString *accessoryBundleId(NSString *value) {
+    NSString *guestId = NSBundle.mainBundle.bundleIdentifier;
+    if (!processBundleId || (value && ![value isEqualToString:guestId])) return value;
+    return processBundleId;
+}
+
+static void hookDeviceAccess(void) {
+    unsigned count = 0;
+    const char *image = "/System/Library/PrivateFrameworks/DeviceAccess.framework/DeviceAccess";
+    const char **names = objc_copyClassNamesForImage(image, &count);
+    for (unsigned i = 0; i < count; i++) {
+        Class cls = objc_getClass(names[i]);
+        for (NSString *name in @[@"setBundleID:", @"setBundleIdentifier:", @"setAppBundleID:"]) {
+            SEL sel = NSSelectorFromString(name);
+            Method m = class_getInstanceMethod(cls, sel);
+            // Only the class's own setter, so a subclass isn't hooked twice.
+            if (!m || method_getImplementation(m) != class_getMethodImplementation(cls, sel)) continue;
+            unsigned own = 0;
+            Method *list = class_copyMethodList(cls, &own);
+            BOOL declared = NO;
+            for (unsigned j = 0; j < own; j++) if (method_getName(list[j]) == sel) declared = YES;
+            free(list);
+            if (!declared) continue;
+            replaceMethod(cls, sel, NO, ^id(IMP orig) {
+                return ^(id self, NSString *value) {
+                    ((void (*)(id, SEL, NSString *))orig)(self, sel, accessoryBundleId(value));
+                };
+            });
+        }
+    }
+    free(names);
+    // A session that's never given an ID is filled in when it starts.
+    SEL activate = @selector(activate);
+    replaceMethod(objc_getClass("DASession"), activate, NO, ^id(IMP orig) {
+        return ^(id self) {
+            if ([self respondsToSelector:@selector(setBundleID:)] && ![self valueForKey:@"bundleID"]) {
+                [self setValue:accessoryBundleId(nil) forKey:@"bundleID"];
+            }
+            ((void (*)(id, SEL))orig)(self, activate);
+        };
+    });
+    NSLog(@"[LCGuestExtension] accessory requests use %@", processBundleId);
+}
+
 __attribute__((constructor)) static void LCGuestExtensionRuntimeInit(void) {
     NSBundle *main = NSBundle.mainBundle;
     NSDictionary *ext = main.infoDictionary[kLCGuestExtensionInfoKey];
@@ -238,4 +291,11 @@ __attribute__((constructor)) static void LCGuestExtensionRuntimeInit(void) {
     extensionIdMap = map;
     copiedKinds = kinds;
     installIdHooks();
+    // Where apps run (not in copied extensions), when an app's Accessory Setup is on: LiveContainer's
+    // Info.plist then has the accessory settings. Before an app replaces Bundle.main.
+    NSDictionary *lcInfo = [NSDictionary dictionaryWithContentsOfFile:[appPath stringByAppendingPathComponent:@"Info.plist"]];
+    if (!ext && [lcInfo[@"NSAccessorySetupKitSupports"] count]) {
+        processBundleId = main.bundleIdentifier;
+        if (dlopen("/System/Library/PrivateFrameworks/DeviceAccess.framework/DeviceAccess", RTLD_LAZY)) hookDeviceAccess();
+    }
 }
