@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.23",
+          "buildVersion": "3.8.11.23",
+          "date": "2026-11-14T10:20:50Z",
+          "localizedDescription": "Accessory Setup: apps' pairing requests now go through as LiveContainer, so the pairing sheet can appear. Based on LiveContainer 3.8.11.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.23/LiveContainer+SideStore.ipa",
+          "size": 23838048,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.22",
           "buildVersion": "3.8.11.22",
           "date": "2026-11-14T09:38:46Z",
