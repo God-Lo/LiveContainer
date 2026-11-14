@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.22",
+          "buildVersion": "3.8.11.22",
+          "date": "2026-11-14T09:38:46Z",
+          "localizedDescription": "New Accessory Setup switch: apps that pair accessories with AccessorySetupKit can show their pairing sheet (iOS 18 or later). Off by default. Based on LiveContainer 3.8.11.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.22/LiveContainer+SideStore.ipa",
+          "size": 23837022,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.21",
           "buildVersion": "3.8.11.21",
           "date": "2026-11-12T02:17:21Z",
