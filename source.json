@@ -19,6 +19,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "3.8.11.24",
+          "buildVersion": "3.8.11.24",
+          "date": "2026-11-18T18:18:50Z",
+          "localizedDescription": "Updates: LiveContainer and the built-in SideStore read the source the same way, never go back to an older copy, and only show a newer build as an update. Based on LiveContainer 3.8.11.",
+          "downloadURL": "https://github.com/God-Lo/LiveContainer/releases/download/3.8.11.24/LiveContainer+SideStore.ipa",
+          "size": 23838668,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "3.8.11.23",
           "buildVersion": "3.8.11.23",
           "date": "2026-11-14T10:20:50Z",
