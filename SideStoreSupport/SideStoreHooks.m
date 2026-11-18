@@ -7,6 +7,7 @@
 #include "../LiveContainer/utils.h"
 #include "../LiveContainer/LCSharedUtils.h"
 #include "XPCServer.h"
+#import "../fork/Sources/LiveContainerShared/LCForkSource.h"  // fork
 #import <sys/sysctl.h>
 @import UserNotifications;
 @import UIKit;
@@ -104,28 +105,26 @@ NSURL* SideStoreSource_hook_altStoreSourceURL(id self, SEL cmd) {
     });
     return sourceURL;
 }
-// fork: fetch this fork's source through GitHub's API, which serves the latest commit (the plain link can
-// keep serving an older copy for minutes), so SideStore sees a new release as soon as LiveContainer's own
-// update check does. When the API turns the request down (60 an hour per network), the plain link is used.
+// fork: SideStore reads this fork's source through LCForkSource, like LiveContainer's own update check:
+// fresh from GitHub's API, never going back to an older copy, LiveContainer's releases sorted by build.
 typedef void (^SideStoreDataCompletion)(NSData *, NSURLResponse *, NSError *);
 static NSURLSessionDataTask *(*SideStoreSession_orig_dataTask)(id self, SEL cmd, NSURLRequest *request, id completion);
 static NSURLSessionDataTask *SideStoreSession_hook_dataTask(id self, SEL cmd, NSURLRequest *request, id completion) {
-    NSURL *source = SideStoreSource_hook_altStoreSourceURL(nil, nil);
-    if (!completion || ![request.URL.host isEqualToString:source.host] || ![request.URL.path isEqualToString:source.path]) {
+    NSURL *source = LCForkSource.sourceURL;
+    if (!completion || [request valueForHTTPHeaderField:LCForkSource.passthroughHeader] ||
+        ![request.URL.host isEqualToString:source.host] || ![request.URL.path isEqualToString:source.path]) {
         return SideStoreSession_orig_dataTask(self, cmd, request, completion);
     }
-    NSMutableURLRequest *plain = [request mutableCopy];
-    plain.cachePolicy = NSURLRequestReloadIgnoringLocalAndRemoteCacheData;
-    NSMutableURLRequest *api = [plain mutableCopy];
-    api.URL = [NSURL URLWithString:@"https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json"];
-    [api setValue:@"application/vnd.github.raw" forHTTPHeaderField:@"Accept"];
     SideStoreDataCompletion done = completion;
-    return SideStoreSession_orig_dataTask(self, cmd, api, ^(NSData *data, NSURLResponse *response, NSError *error) {
-        if ([(NSHTTPURLResponse *)response isKindOfClass:NSHTTPURLResponse.class] && ((NSHTTPURLResponse *)response).statusCode == 200) {
+    // SideStore resumes the task it gets back: a request that does nothing, answered with the source.
+    NSMutableURLRequest *stub = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"data:application/json,{}"]];
+    [stub setValue:@"1" forHTTPHeaderField:LCForkSource.passthroughHeader];
+    return SideStoreSession_orig_dataTask(self, cmd, stub, ^(NSData *unused, NSURLResponse *stubResponse, NSError *stubError) {
+        [LCForkSource fetchWithCompletion:^(NSData *data, NSError *error) {
+            NSHTTPURLResponse *response = data ? [[NSHTTPURLResponse alloc] initWithURL:request.URL statusCode:200 HTTPVersion:@"HTTP/1.1"
+                                                                    headerFields:@{@"Content-Type": @"application/json"}] : nil;
             done(data, response, error);
-        } else {
-            [SideStoreSession_orig_dataTask(self, cmd, plain, done) resume];
-        }
+        }];
     });
 }
 
@@ -140,19 +139,24 @@ static void SideStoreTabBar_hook_viewDidAppear(UITabBarController *self, SEL cmd
     }
 }
 
-// fork: LiveContainer's own update check compares builds (e.g. 3.8.11.4 > 3.8.11.3). SideStore compares
-// versions only, and can't tell which build was installed from a file.
+// fork: SideStore can't compare LiveContainer's four-part versions (3.8.11.23) and then shows an update
+// whenever anything differs, even for the installed or an older release. LiveContainer has an update only
+// when the source's newest build is newer than the running LiveContainer's build.
 static BOOL (*SideStoreInstalledApp_orig_hasUpdate)(id self, SEL cmd);
 static BOOL SideStoreInstalledApp_hook_hasUpdate(id self, SEL cmd) {
+    NSString *bundleId = nil;
+    @try { bundleId = [self valueForKey:@"bundleIdentifier"]; } @catch (NSException *e) {}
+    if (![bundleId isEqualToString:@"com.kdt.livecontainer"]) return SideStoreInstalledApp_orig_hasUpdate(self, cmd);
     @try {
-        if ([[self valueForKey:@"bundleIdentifier"] isEqualToString:@"com.kdt.livecontainer"]) {
-            id latest = [self valueForKeyPath:@"storeApp.latestVersion"];
-            NSString *latestBuild = [latest valueForKey:@"buildVersion"] ?: [latest valueForKey:@"version"];
-            NSString *installed = NSUserDefaults.lcMainBundle.infoDictionary[@"CFBundleVersion"];
-            return latestBuild && installed && [latestBuild compare:installed options:NSNumericSearch] == NSOrderedDescending;
+        NSString *latest = nil;
+        for (id version in [[self valueForKeyPath:@"storeApp.versions"] array] ?: @[]) {
+            NSString *build = [version valueForKey:@"buildVersion"] ?: [version valueForKey:@"version"];
+            if (build.length && (!latest || [LCForkSource compareBuild:build to:latest] == NSOrderedDescending)) latest = build;
         }
-    } @catch (NSException *e) {}
-    return SideStoreInstalledApp_orig_hasUpdate(self, cmd);
+        return latest && [LCForkSource compareBuild:latest to:LCForkSource.installedBuild] == NSOrderedDescending;
+    } @catch (NSException *e) {
+        return NO;
+    }
 }
 
 #pragma clang diagnostic push

@@ -11,7 +11,6 @@ import SwiftUI
 import UIKit
 
 enum LCForkUpdate {
-    static let sourceURL = URL(string: "https://raw.githubusercontent.com/God-Lo/LiveContainer/main/source.json")!
     private static let dismissedKey = "LCForkUpdateDismissedBuild"
 
     struct Release {
@@ -20,40 +19,25 @@ enum LCForkUpdate {
         let downloadURL: URL
     }
 
-    /// This install's build, e.g. "3.8.11.4".
-    static var currentBuild: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-    }
+    /// This install's build, e.g. "3.8.11.23".
+    static var currentBuild: String { LCForkSource.installedBuild() }
 
     /// Numeric, part by part: 3.8.11.10 is newer than 3.8.11.9.
     static func isNewer(_ a: String, than b: String) -> Bool {
-        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(x.count, y.count) {
-            let l = i < x.count ? x[i] : 0, r = i < y.count ? y[i] : 0
-            if l != r { return l > r }
-        }
-        return false
+        LCForkSource.compareBuild(a, to: b) == .orderedDescending
     }
 
-    /// The same file through GitHub's API, which serves the latest commit (raw.githubusercontent.com can
-    /// keep serving an older copy for several minutes, query string or not).
-    static let apiSourceURL = URL(string: "https://api.github.com/repos/God-Lo/LiveContainer/contents/source.json")!
-
+    /// The newest release in the source, read the same way as the built-in SideStore (LCForkSource.m).
     static func fetchLatest() async throws -> Release? {
-        var request = URLRequest(url: apiSourceURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
-        request.setValue("application/vnd.github.raw", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 20
-        var (data, response) = try await URLSession.shared.data(for: request)
-        if (response as? HTTPURLResponse)?.statusCode != 200 {
-            // API limit reached (60 an hour): fall back to the plain link.
-            (data, _) = try await URLSession.shared.data(for: URLRequest(url: sourceURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            LCForkSource.fetch { data, error in
+                if let data { continuation.resume(returning: data) }
+                else { continuation.resume(throwing: error ?? URLError(.badServerResponse)) }
+            }
         }
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let app = (json?["apps"] as? [[String: Any]])?.first
-        guard let latest = (app?["versions"] as? [[String: Any]])?.first,
-              let build = latest["buildVersion"] as? String ?? latest["version"] as? String,
-              let url = (latest["downloadURL"] as? String).flatMap(URL.init(string:)) else { return nil }
-        return Release(build: build, notes: latest["localizedDescription"] as? String ?? "", downloadURL: url)
+        guard let latest = LCForkSource.latestRelease(in: data), let build = latest["build"],
+              let url = latest["downloadURL"].flatMap(URL.init(string:)) else { return nil }
+        return Release(build: build, notes: latest["notes"] ?? "", downloadURL: url)
     }
 
     /// At launch: offer a newer release once per release.
