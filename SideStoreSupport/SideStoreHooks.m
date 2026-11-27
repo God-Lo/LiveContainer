@@ -11,6 +11,7 @@
 #import <sys/sysctl.h>
 @import UserNotifications;
 @import UIKit;
+@import CoreData;
 
 @interface LCAuthorizedNotificationSettings : UNNotificationSettings
 @end
@@ -139,6 +140,26 @@ static void SideStoreTabBar_hook_viewDidAppear(UITabBarController *self, SEL cmd
     }
 }
 
+// fork: SideStore also decides "Update" in Swift code that the hasUpdate hook below doesn't reach: it
+// compares the newest release with the version and build it recorded when it installed LiveContainer.
+// LiveContainer's own rebuilds (and installs from a file) don't record the build, so the installed release
+// looked out of date. Whenever SideStore loads its LiveContainer record, the record is set to the
+// running LiveContainer's version and build, which is what's actually installed.
+static void SideStoreFixLiveContainerRecord(NSManagedObject *app) {
+    @try {
+        if (![[app primitiveValueForKey:@"bundleIdentifier"] isEqual:@"com.kdt.livecontainer"]) return;
+        NSString *build = LCForkSource.installedBuild;
+        NSString *version = NSUserDefaults.lcMainBundle.infoDictionary[@"CFBundleShortVersionString"] ?: build;
+        if (![[app primitiveValueForKey:@"storeBuildVersion"] isEqual:build]) [app setPrimitiveValue:build forKey:@"storeBuildVersion"];
+        if (![[app primitiveValueForKey:@"version"] isEqual:version]) [app setPrimitiveValue:version forKey:@"version"];
+    } @catch (NSException *e) {}
+}
+static void (*SideStoreInstalledApp_orig_awakeFromFetch)(id self, SEL cmd);
+static void SideStoreInstalledApp_hook_awakeFromFetch(id self, SEL cmd) {
+    SideStoreInstalledApp_orig_awakeFromFetch(self, cmd);
+    SideStoreFixLiveContainerRecord(self);
+}
+
 // fork: SideStore can't compare LiveContainer's four-part versions (3.8.11.23) and then shows an update
 // whenever anything differs, even for the installed or an older release. LiveContainer has an update only
 // when the source's newest build is newer than the running LiveContainer's build.
@@ -147,6 +168,7 @@ static BOOL SideStoreInstalledApp_hook_hasUpdate(id self, SEL cmd) {
     NSString *bundleId = nil;
     @try { bundleId = [self valueForKey:@"bundleIdentifier"]; } @catch (NSException *e) {}
     if (![bundleId isEqualToString:@"com.kdt.livecontainer"]) return SideStoreInstalledApp_orig_hasUpdate(self, cmd);
+    SideStoreFixLiveContainerRecord(self);
     @try {
         NSString *latest = nil;
         for (id version in [[self valueForKeyPath:@"storeApp.versions"] array] ?: @[]) {
@@ -272,6 +294,15 @@ void installSideStoreHooks(void) {
     if (hasUpdateMethod) {
         SideStoreInstalledApp_orig_hasUpdate = (BOOL (*)(id, SEL))method_getImplementation(hasUpdateMethod);
         method_setImplementation(hasUpdateMethod, (IMP)SideStoreInstalledApp_hook_hasUpdate);
+    }
+    Class installedAppClass = PrivClass(InstalledApp);
+    Method awakeMethod = installedAppClass ? class_getInstanceMethod(installedAppClass, @selector(awakeFromFetch)) : NULL;
+    if (awakeMethod) {
+        // Usually inherited from NSManagedObject: add an override that calls it.
+        SideStoreInstalledApp_orig_awakeFromFetch = (void (*)(id, SEL))method_getImplementation(awakeMethod);
+        if (!class_addMethod(installedAppClass, @selector(awakeFromFetch), (IMP)SideStoreInstalledApp_hook_awakeFromFetch, method_getTypeEncoding(awakeMethod))) {
+            method_setImplementation(awakeMethod, (IMP)SideStoreInstalledApp_hook_awakeFromFetch);
+        }
     }
     
     // fork: always keep app extensions signed with the main profile (one App ID), without asking.
